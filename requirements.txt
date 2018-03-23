@@ -1,0 +1,4 @@
+plyvel
+twisted
+pytest
+msgpack
