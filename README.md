@@ -1,7 +1,10 @@
-#CryptoCoin
+# CryptoCoin
 
 This is a "toy" implementation of Blockchain with Proof-of-Authority(PoA) as final project
-of Toptal's Blockchain Academy.
+of Toptal's Blockchain Academy. 
+
+Project is developed with twisted networking tools.
+
 
 
 ## Requirements
@@ -38,7 +41,7 @@ python setup.py install
 ```
 
 ## Usage
-
+to be done
 
 ## Author
 
