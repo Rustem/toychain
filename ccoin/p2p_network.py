@@ -132,6 +132,14 @@ class BasePeer(Factory):
     def buildProtocol(self, addr):
         return SimpleHandshakeProtocol(self)
 
+    def startFactory(self):
+        # client part -> connect to all peers (members) -> add handshake callback
+        self.bootstrap_network()
+
+    def stopFactory(self):
+        # TODO close opened resources gracefully if necessary
+        pass
+
     @staticmethod
     def got_protocol(p):
         """The callback to start the protocol handshake. Let connecting nodes start the hello handshake."""
@@ -162,6 +170,13 @@ class BasePeer(Factory):
             d.addCallback(self.got_protocol)
             d.addErrback(self.handle_connection_error, peer.id)
 
+    def run(self):
+        """Starts a server listening on a port given in peers dict and then connect to other peers."""
+        endpoint = TCP4ServerEndpoint(reactor, self.peer.port)
+        d = endpoint.listen(self)
+        d.addErrback(log.err)
+        reactor.run()
+
     def add_peer(self, peer_node_id, peer_connection):
         """
         :param peer_node_id:
@@ -178,15 +193,6 @@ class BasePeer(Factory):
 
     def parse_msg(self, msg_type, msg, sender):
         raise NotImplementedError("Can\'t parse %s: %s" % (msg_type, msg))
-
-    def run(self):
-        """Starts a server listening on a port given in peers dict and then connect to other peers."""
-        endpoint = TCP4ServerEndpoint(reactor, self.peer.port)
-        d = endpoint.listen(self)
-        d.addErrback(log.err)
-        # client part -> connect to all peers (members) -> add handshake callback
-        self.bootstrap_network()
-        reactor.run()
 
 
 class PeerInfo(object):
