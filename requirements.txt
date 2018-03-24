@@ -2,3 +2,4 @@ plyvel
 twisted
 pytest
 msgpack
+cryptography==2.2.1
