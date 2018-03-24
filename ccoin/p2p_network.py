@@ -1,11 +1,16 @@
-import struct
 import logging
+import struct
+
 import msgpack
-from twisted.protocols.basic import IntNStringReceiver
-from twisted.internet.protocol import connectionDone, Factory
+from twisted.internet import reactor, defer
 from twisted.internet.endpoints import TCP4ClientEndpoint, TCP4ServerEndpoint, connectProtocol
-from twisted.internet import reactor
+from twisted.internet.protocol import connectionDone, Factory
+from twisted.protocols.basic import IntNStringReceiver
+
+from ccoin.discovery import PeerDiscoveryService
+from ccoin.peer_info import PeerInfo
 from twisted.python import log
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -113,11 +118,8 @@ class BasePeer(Factory):
     def __init__(self, uuid):
         self.id = uuid
         self.peers_connection = {}
-        self.peers = {
-            "1": PeerInfo("127.0.0.1", 8030, "1"),
-            "2": PeerInfo("127.0.0.1", 8031, "2"),
-            "3": PeerInfo("127.0.0.1", 8032, "3"),
-        }
+        self.peers = {}
+        self.discovery_service = PeerDiscoveryService()
         self.message_callback = self.parse_msg
         self.reconnect_loop = None
 
@@ -132,27 +134,32 @@ class BasePeer(Factory):
     def buildProtocol(self, addr):
         return SimpleHandshakeProtocol(self)
 
-    def startFactory(self):
-        # client part -> connect to all peers (members) -> add handshake callback
-        self.bootstrap_network()
-
-    def stopFactory(self):
-        # TODO close opened resources gracefully if necessary
-        pass
-
     @staticmethod
     def got_protocol(p):
         """The callback to start the protocol handshake. Let connecting nodes start the hello handshake."""
         p.send_hi()
 
     @staticmethod
-    def handle_connection_error(failure, node_id):
+    def fail_got_protocol(failure, node_id):
         logger.debug('Peer not online (%s): peer node id = %s ', str(failure.type), node_id)
 
+    @defer.inlineCallbacks
+    def server_started(self, host_info):
+        host = host_info.getHost()
+        yield self.discovery_service.initialize()
+        yield self.discovery_service.add_member(PeerInfo(host.host, host.port, self.id))
+        yield self.bootstrap_network()
+
+    @defer.inlineCallbacks
+    def stopFactory(self):
+        yield self.discovery_service.remove_member(self.id)
+
+    @defer.inlineCallbacks
     def bootstrap_network(self):
-        """Fetches all the peers registered under discovery table and connect to each of those if not yet connected."""
+        """Connect to each online peer if not yet connected."""
         if not self.peers:
-            raise NotImplementedError("Work with autodiscovery table not done yet")
+            for peer in (yield self.discovery_service.get_members()):
+                self.peers[peer.id] = peer
         for peer in self.peers.values():
             if peer.id == self.id:
                 continue # skip
@@ -168,12 +175,13 @@ class BasePeer(Factory):
             point = TCP4ClientEndpoint(reactor, peer.ip, peer.port)
             d = connectProtocol(point, SimpleHandshakeProtocol(self))
             d.addCallback(self.got_protocol)
-            d.addErrback(self.handle_connection_error, peer.id)
+            d.addErrback(self.fail_got_protocol, peer.id)
 
-    def run(self):
+    def run(self, port):
         """Starts a server listening on a port given in peers dict and then connect to other peers."""
-        endpoint = TCP4ServerEndpoint(reactor, self.peer.port)
+        endpoint = TCP4ServerEndpoint(reactor, port)
         d = endpoint.listen(self)
+        d.addCallback(self.server_started)
         d.addErrback(log.err)
         reactor.run()
 
@@ -184,30 +192,15 @@ class BasePeer(Factory):
         :return:
         """
         self.peers_connection[peer_node_id] = peer_connection
-        peer_info = peer_connection.transport.getPeer()
-        self.peers[peer_node_id] = PeerInfo(peer_info.host, peer_info.port, peer_node_id)
+        peer_ip_port = peer_connection.transport.getPeer()
+        self.peers[peer_node_id] = PeerInfo(peer_ip_port.host, peer_ip_port.port, peer_node_id)
 
     def remove_peer(self, peer_node_id):
         self.peers_connection.pop(peer_node_id, None)
-        # TODO remove from peers dict too when autodiscover gets enabled.
+        self.peers.pop(peer_node_id, None)
 
     def parse_msg(self, msg_type, msg, sender):
         raise NotImplementedError("Can\'t parse %s: %s" % (msg_type, msg))
-
-
-class PeerInfo(object):
-    """Class that encapsulates peer meta information."""
-
-    def __init__(self, ip, port, uuid=None):
-        self.ip = ip
-        self.port = port
-        if uuid is None:
-            self.id = self.gen_id()
-        else:
-            self.id = uuid
-
-    def gen_id(self):
-        raise NotImplementedError()
 
 
 
