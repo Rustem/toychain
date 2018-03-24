@@ -41,7 +41,24 @@ python setup.py install
 ```
 
 ## Usage
-to be done
+Node represents the peer in the network. To start the node it is necessary to pass his id and list of
+connecting peers. 
+
+Note: `run()` starts the twisted loop.
+
+```python
+import argparse
+from ccoin.p2p_network import BasePeer
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("node_id", help='Id of the node in the given peers dict.')
+    args = parser.parse_args()
+    node_id = args.node_id
+    node = BasePeer(node_id)
+    node.run()
+```
 
 ## Author
 
