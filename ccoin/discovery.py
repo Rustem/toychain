@@ -10,7 +10,7 @@ class PeerDiscoveryService(object):
         base_path = os.path.expanduser('~/.ccoin')
         if not os.path.exists(base_path):
             os.makedirs(base_path)
-        path = os.path.join(base_path, "discovery.db")
+        path = os.path.join(base_path, "accounts.db")
         self.db = adbapi.ConnectionPool("sqlite3", path, check_same_thread=False)
 
     @defer.inlineCallbacks

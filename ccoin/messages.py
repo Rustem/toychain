@@ -1,6 +1,4 @@
 import msgpack
-import hashlib
-
 from ccoin.security import hash_map, sign
 from .exceptions import MessageDeserializationException
 from abc import ABC, abstractmethod, abstractclassmethod
@@ -72,6 +70,7 @@ class Transaction(BaseMessage):
         to (str): address of the recipient account.
         amount (int): amount of money spent by sender and credited to the recipient
         data (varies): attached data
+        signature:
     """
     identifier = "TXN"
 
