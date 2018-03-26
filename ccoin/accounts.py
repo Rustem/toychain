@@ -94,7 +94,7 @@ class AccountManager(SharedDatabaseServiceMixin):
 class AccountCreator(AccountManager):
 
     def full_key_path(self, user_id):
-        return os.path.join(self.key_path, user_id, ".key")
+        return os.path.join(self.key_path, "%s.key" % user_id)
 
     def create(self, user_id, **kwargs):
         account = Account(user_id, **kwargs)
@@ -108,7 +108,7 @@ class AccountCreator(AccountManager):
 
     @staticmethod
     def q_create_account(cursor, id=None, public_key=None, balance=0, is_miner=False, key_path=None):
-        cursor.execute("INSERT OR REPLACE INTO accounts VALUES(?, ?, ?, ?)", (id, public_key, balance, is_miner))
+        cursor.execute("INSERT OR REPLACE INTO accounts VALUES(?, ?, ?, ?, ?)", (id, public_key, balance, is_miner, key_path))
 
     def store_key(self, user_id, private_key):
         full_key_path = self.full_key_path(user_id)
