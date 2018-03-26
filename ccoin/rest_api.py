@@ -45,7 +45,7 @@ class JsonApiResource(JSONP2PRelayResource):
         return {"peers": len(self.node.peers_connection)}
 
 
-def run_http_site(node, port, callback=None, errback=None):
+def run_http_api(node, port, callback=None, errback=None):
     RestApi = RootResource(node)
     RestApi.putChild(node.id.encode(), JsonApiResource())
     site = server.Site(RestApi)

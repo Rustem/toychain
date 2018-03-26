@@ -25,6 +25,17 @@ def generate_key_pair(key_size=1024):
     return private_key_pem, public_key_pem
 
 
+def load_private_key_from_file(key_path):
+    with open(key_path, "rb") as fh:
+        return load_private_key(fh.read())
+
+
+def load_private_key(private_bytes):
+    private_key = serialization.load_pem_private_key(
+        private_bytes, password=None, backend=default_backend())
+    return private_key
+
+
 def sign(private_key, message_bytes):
     """Sign message_bytes with RSA cryptography tools"""
     digest = hash_message(message_bytes)

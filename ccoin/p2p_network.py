@@ -11,11 +11,10 @@ from ccoin.discovery import PeerDiscoveryService
 from ccoin.peer_info import PeerInfo
 from twisted.python import log
 
-from ccoin.rest_api import run_http_site
+from ccoin.rest_api import run_http_api
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-
 
 class SimpleHandshakeProtocol(IntNStringReceiver):
     """This class encapsulates behaviour of establishing and keeping connection with remote peers.
@@ -170,27 +169,29 @@ class BasePeer(Factory):
             d = connectProtocol(point, SimpleHandshakeProtocol(self))
             d.addCallback(self.got_protocol)
             d.addErrback(self.fail_got_protocol, peer.id)
-
-    def run_p2p(self, port):
-        """Starts a server listening on a port given in peers dict and then connect to other peers."""
-        endpoint = TCP4ServerEndpoint(reactor, port)
-        d = endpoint.listen(self)
-        d.addCallback(self.p2p_listen_ok)
-        d.addErrback(log.err)
-        reactor.run()
+    #
+    # def run_p2p(self, port):
+    #     """Starts a server listening on a port given in peers dict and then connect to other peers."""
+    #     endpoint = TCP4ServerEndpoint(reactor, port)
+    #     d = endpoint.listen(self)
+    #     d.addCallback(self.p2p_listen_ok)
+    #     d.addErrback(log.err)
+    #     reactor.run()
 
     @defer.inlineCallbacks
-    def p2p_listen_ok(self, host_info):
-        host = host_info.getHost()
+    def p2p_listen_ok(self, portObject):
+        """Callback called once node started to listen"""
+        host = portObject.getHost()
         # Start HTTP RPC server
-        yield run_http_site(self, host.port + 1, callback=self.http_listen_ok, errback=log.err)
+        yield run_http_api(self, host.port + 1, callback=self.http_listen_ok, errback=log.err)
         # P2P Network bootstrap
         yield self.discovery_service.initialize()
         yield self.discovery_service.add_member(PeerInfo(host.host, host.port, self.id))
         yield self.bootstrap_network()
 
-    def http_listen_ok(self, *args, **kwargs):
-        print("hi", args)
+    def http_listen_ok(self, portObject):
+        host = portObject.getHost()
+        log.msg("HTTP API ENDPOINT Started got up and listening on port: %s" % host.port)
 
     def add_peer(self, peer_node_id, peer_connection):
         """

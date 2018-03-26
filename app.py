@@ -1,5 +1,7 @@
 import argparse
 import logging
+
+
 from ccoin.p2p_network import BasePeer
 
 logging.basicConfig(level=logging.DEBUG)
