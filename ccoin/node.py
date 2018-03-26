@@ -3,20 +3,11 @@ from ccoin.p2p_network import BasePeer
 from ccoin.security import generate_key_pair
 
 
-class AccountManager(object):
-
-    def __init__(self, account):
-        self.account = account
-        self.ensure_tables()
-
-    def save(self):
-        pass
-
 # ~/.ccoin/blockchain
 # ~/.ccoin/.keys/
 # ~/.ccoin/config.json
 
-# TODO 0. Setup restful server on differnet port
+# TODO 0. Setup restful server on differnet port (done)
 # TODO 1. Command line & Restful API utility that creates accounts
 #     Account is created with keys
 #     Private key is stored under # ~/.ccoin/.keys/
@@ -46,10 +37,9 @@ class Account(Serializable):
     def address(self):
         return self.public_key
 
-    def generate_keypair(self):
+    def generate_keypair(self, save=False):
         """Generates private/public key pair."""
         self.private_key, self.public_key = generate_key_pair()
-
 
     def to_dict(self):
         data = {

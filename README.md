@@ -44,7 +44,7 @@ python setup.py install
 Node represents the peer in the network. To start the node it is necessary to pass his id and list of
 connecting peers. 
 
-Note: `run()` starts the twisted loop.
+Note: `run_p2p()` starts the twisted loop.
 
 ```python
 import argparse
@@ -57,7 +57,7 @@ def main():
     args = parser.parse_args()
     node_id = args.node_id
     node = BasePeer(node_id)
-    node.run()
+    node.run_p2p()
 ```
 
 ## Author

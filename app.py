@@ -16,7 +16,7 @@ def main():
     # port autodiscovery
     port = 0 # int(args.port)
     node = BasePeer(node_id)
-    node.run(port)
+    node.run_p2p(port)
 
 
 if __name__ == "__main__":
