@@ -41,24 +41,36 @@ python setup.py install
 ```
 
 ## Usage
-Node represents the peer in the network. To start the node it is necessary to pass his id and list of
-connecting peers. 
+All communication with application is handled using microservices (a.k.a twisted plugins). In order to run
+blockchain node, firstly it is necessary to create account with generated keypair and (non-zero) balance:
 
-Note: `run_p2p()` starts the twisted loop.
-
-```python
-import argparse
-from ccoin.p2p_network import BasePeer
-
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("node_id", help='Id of the node in the given peers dict.')
-    args = parser.parse_args()
-    node_id = args.node_id
-    node = BasePeer(node_id)
-    node.run_p2p()
+```bash
+twistd -n create-account --nodeid=1 --balance=120
 ```
+
+Blockchain node is represented by ChainNode entity. Having just created account, it is possible to run an instance
+of ChainNode with the following command:
+
+```bash
+twistd --pidfile twistd_1.pid --nodaemon cnode --nodeid=1
+```
+
+If everything is created successfully you will be able to see a log similar to the one below:
+
+```bash
+2018-03-27T15:19:52+0600 [twisted.scripts._twistd_unix.UnixAppLogger#info] twistd 17.9.0 (/Users/rustem/.virtualenvs/bchain-academy/bin/python3.5 3.5.2) starting up.
+2018-03-27T15:19:52+0600 [twisted.scripts._twistd_unix.UnixAppLogger#info] reactor class: twisted.internet.selectreactor.SelectReactor.
+2018-03-27T15:19:52+0600 [-] ChainNode starting on 63261
+2018-03-27T15:19:52+0600 [ccoin.chainnode.ChainNode#info] Starting factory <ccoin.chainnode.ChainNode object at 0x10580b8d0>
+2018-03-27T15:19:52+0600 [-] Site starting on 63262
+2018-03-27T15:19:52+0600 [twisted.web.server.Site#info] Starting factory <twisted.web.server.Site object at 0x10591e048>
+2018-03-27T15:19:52+0600 [-] HTTP API ENDPOINT Started got up and listening on port: 63262
+2018-03-27T15:19:52+0600 [-] ChainNode starting on 63263
+2018-03-27T15:19:52+0600 [-] Site starting on 63264
+2018-03-27T15:19:52+0600 [twisted.web.server.Site#info] Starting factory <twisted.web.server.Site object at 0x10591e4a8>
+2018-03-27T15:19:52+0600 [-] HTTP API ENDPOINT Started got up and listening on port: 63264
+``` 
+The log above clearly indicates that the node has run as p2p endpoint on port 63263 as well as http api endpoint on port 63264.  
 
 ## Author
 

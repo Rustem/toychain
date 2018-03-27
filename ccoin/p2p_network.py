@@ -73,7 +73,6 @@ class SimpleHandshakeProtocol(IntNStringReceiver):
     def handle_hi(self, msg):
         """Handles incoming handshake message by persisting the details of connected peer and
         sending him acknowledgement."""
-        print(msg)
         peer_node_id = msg["node_id"]
         logger.debug('Handshake from %s with peer_node_id = %s ', str(self.transport.getPeer()), peer_node_id)
         if peer_node_id not in self.factory.peers_connection:

@@ -90,6 +90,15 @@ class AccountManager(SharedDatabaseServiceMixin):
                 key_path text NULL)
             """)
 
+    @staticmethod
+    def tuple_to_dict(account_tuple):
+        return {
+            "id": account_tuple[0],
+            "public_key": account_tuple[1],
+            "balance": account_tuple[2],
+            "is_miner": account_tuple[3],
+            "key_path": account_tuple[4],
+        }
 
 class AccountCreator(AccountManager):
 
@@ -120,11 +129,21 @@ class AccountCreator(AccountManager):
 class AccountProvider(AccountManager):
 
     @defer.inlineCallbacks
-    def get_by_uid(self, user_id, with_private_key=False):
-        result = yield self.db.runQuery('SELECT * FROM accounts WHERE id=?', user_id)
+    def get_by_id(self, account_id, with_private_key=False):
+        """
+        Returns Account object found by its identifier.
+        :param account_id: unique account identifier
+        :type account_id: str
+        :param with_private_key: flag if set then loads private key to the returned object
+        :type with_private_key: bool
+        :return: Account object
+        :rtype: Account
+        """
+        result = yield self.db.runQuery('SELECT * FROM accounts WHERE id=?', account_id)
         if not result:
             return None
-        account = Account.from_dict(result[0])
+        account_data = self.tuple_to_dict(result[0])
+        account = Account.from_dict(account_data)
         if with_private_key:
             account.load_private_key()
-        return account
+        defer.returnValue(account)
