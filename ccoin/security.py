@@ -1,5 +1,6 @@
 # https://cryptography.io/en/latest/hazmat/primitives/asymmetric/dsa/
 import msgpack
+import base64
 from cryptography.hazmat.primitives.asymmetric import utils
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
@@ -22,7 +23,7 @@ def generate_key_pair(key_size=1024):
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo
     )
-    return private_key_pem, public_key_pem
+    return private_key_pem.decode(), public_key_pem.decode()
 
 
 def load_private_key_from_file(key_path):
@@ -45,13 +46,14 @@ def sign(private_key, message_bytes):
         mgf=padding.MGF1(hashes.SHA256()),
         salt_length=padding.PSS.MAX_LENGTH)
     signature = private_key.sign(digest, pad, utils.Prehashed(hashes.SHA256()))
-    return signature
+    return base64.b64encode(signature).decode('ascii')
 
 
-def verify(signature, message_bytes, public_key):
+def verify(base64_signature, message_bytes, public_key):
     """Verifies signature with RSA cryptography tools"""
+    signature = base64.b64decode(base64_signature.encode('ascii'))
     digest = hash_message(message_bytes)
-    public_key = serialization.load_pem_public_key(public_key, backend=default_backend())
+    public_key = serialization.load_pem_public_key(public_key.encode(), backend=default_backend())
     pad = padding.PSS(
         mgf=padding.MGF1(hashes.SHA256()),
         salt_length=padding.PSS.MAX_LENGTH)
@@ -72,5 +74,6 @@ def hash_message(message_bytes):
 
 
 def hash_map(data):
-    msg_bytes = msgpack.packb(frozenset(sorted(data.items())))
-    return hash_message(msg_bytes)
+    msg_bytes = msgpack.packb(sorted(data.items()))
+    hashstr = hash_message(msg_bytes)
+    return base64.b64encode(hashstr).decode()

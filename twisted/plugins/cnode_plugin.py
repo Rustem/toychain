@@ -27,12 +27,17 @@ class StreamServerEndpointService(internet.StreamServerEndpointService):
         super(StreamServerEndpointService, self).__init__(endpoint, factory)
         self.listen_precondition_checks = listen_precondition_checks
         self.got_listen = got_listen
+        self.i = 0
 
     @defer.inlineCallbacks
     def privilegedStartService(self):
         """
         Start listening on the endpoint.
         """
+        # NOTE: somehow yielding here executes service twice, so 'i' counter prevents it
+        if self.i > 0:
+            return
+        self.i += 1
         try:
             for precond_chk, is_async in self.listen_precondition_checks:
                 if is_async:
@@ -66,16 +71,17 @@ class BlockchainNodeServiceMaker(object):
         :return: endpoint service that runs a p2p server node
         :rtype: service.Service
         """
-        top_service = service.MultiService()
+        # top_service = service.MultiService()
         chain_node_factory = ChainNode(options["nodeid"])
         # p2p server
         p2p_service = StreamServerEndpointService(
-            TCP4ServerEndpoint(reactor, 0),
+            TCP4ServerEndpoint(reactor, 0), #8000, interface="127.0.0.1"), #0),
             chain_node_factory,
             listen_precondition_checks=[(chain_node_factory.load_account, True)],
             got_listen=[chain_node_factory.p2p_listen_ok]
         )
-        top_service.addService(p2p_service)
-        return top_service
+        return p2p_service
+        # top_service.addService(p2p_service)
+        # return top_service
 
 service_maker = BlockchainNodeServiceMaker()

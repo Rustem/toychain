@@ -3,23 +3,18 @@ from twisted.internet import defer
 from ccoin.base import Serializable, SharedDatabaseServiceMixin
 from ccoin.security import generate_key_pair, load_private_key
 
-# TODO 0. Setup restful server on differnet port (done)
-# TODO 1. Command line that creates accounts
-#     Account is created with keys
-#     Private key is stored under # ~/.ccoin/.keys/
-#     Private key is loaded when node itself is started to listen
-
 
 class Account(Serializable):
     """Defines account object inside the simple blockchain network."""
 
-    def __init__(self, id, private_key=None, public_key=None, key_path=None, balance=0, is_miner=False):
+    def __init__(self, id, private_key=None, public_key=None, key_path=None, balance=0, is_miner=False, nonce=0):
         self.id = id
         self.private_key = private_key
         self.public_key = public_key
         self.balance = balance
         self.is_miner = is_miner
         self.key_path = key_path
+        self.nonce = nonce
 
     def load_private_key(self):
         if not self.private_key and self.key_path:
@@ -43,7 +38,8 @@ class Account(Serializable):
         data = {
             "id": self.id,
             "balance": self.balance,
-            "is_miner": self.is_miner}
+            "is_miner": self.is_miner,
+            "nonce": self.nonce}
         if self.is_activated:
             data.update({"public_key": self.public_key,
                          "key_path": self.key_path})
@@ -51,14 +47,12 @@ class Account(Serializable):
 
     @classmethod
     def from_dict(cls, data):
-        return cls({
-            "id": data["id"],
-            "is_miner": data.get("is_miner", False),
-            "balance": data.get("balance"),
-            "key_path": data.get("key_path"),
-            "public_key": data.get("public_key", None),
-        })
-
+        return cls(id=data["id"],
+                   is_miner=data.get("is_miner", False),
+                   balance=data.get("balance"),
+                   key_path=data.get("key_path"),
+                   public_key=data.get("public_key", None),
+                   nonce=data.get("nonce", 0))
 
 class AccountManager(SharedDatabaseServiceMixin):
 
@@ -87,7 +81,8 @@ class AccountManager(SharedDatabaseServiceMixin):
                 public_key text NULL,
                 balance integer DEFAULT 0,
                 is_miner integer DEFAULT 0,
-                key_path text NULL)
+                key_path text NULL,
+                nonce integer DEFAULT 0)
             """)
 
     @staticmethod
@@ -98,6 +93,7 @@ class AccountManager(SharedDatabaseServiceMixin):
             "balance": account_tuple[2],
             "is_miner": account_tuple[3],
             "key_path": account_tuple[4],
+            "nonce": account_tuple[5]
         }
 
 class AccountCreator(AccountManager):
@@ -116,15 +112,31 @@ class AccountCreator(AccountManager):
         return defer
 
     @staticmethod
-    def q_create_account(cursor, id=None, public_key=None, balance=0, is_miner=False, key_path=None):
-        cursor.execute("INSERT OR REPLACE INTO accounts VALUES(?, ?, ?, ?, ?)", (id, public_key, balance, is_miner, key_path))
+    def q_create_account(cursor, id=None, public_key=None, balance=0, is_miner=False, key_path=None, nonce=None):
+        cursor.execute("INSERT OR REPLACE INTO accounts VALUES(?, ?, ?, ?, ?, ?)",
+                       (id, public_key, balance, is_miner, key_path, nonce))
 
     def store_key(self, user_id, private_key):
         full_key_path = self.full_key_path(user_id)
         with open(full_key_path, "wb") as fh:
-            fh.write(private_key)
+            fh.write(private_key.encode())
         return full_key_path
 
+
+class AccountUpdater(AccountManager):
+
+    def __init__(self, account):
+        super(AccountUpdater, self).__init__()
+        self.account = account
+
+    @defer.inlineCallbacks
+    def increment_nonce(self):
+        self.account.nonce += 1
+        yield self.db.runInteraction(self.q_increment_nonce, self.account.nonce, self.account.id)
+
+    @staticmethod
+    def q_increment_nonce(cursor, nonce, account_id):
+        cursor.execute("UPDATE accounts SET nonce = ? WHERE id = ?", (nonce, account_id,))
 
 class AccountProvider(AccountManager):
 

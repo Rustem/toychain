@@ -23,3 +23,20 @@ class MessageDeserializationException(BaseException):
     def __str__(self):
         return "DeserializationError: Expected %s message type, but received %s message type" % (
             self.expected_msg_type, self.actual_msg_type)
+
+
+class NotSupportedMessage(BaseException):
+
+    def __init__(self, msg_type):
+        self.msg_type = msg_type
+
+class TransactionVerificationException(BaseException):
+
+    def __init__(self, txn):
+        self.txn = txn
+
+
+class TransactionNotVerifiable(TransactionVerificationException):
+
+    def __str__(self):
+        return "Transaction with id=%s is not verifiable. Please sign it first." % self.txn.id

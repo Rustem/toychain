@@ -1,6 +1,6 @@
 import msgpack
-from ccoin.security import hash_map, sign
-from .exceptions import MessageDeserializationException
+from ccoin.security import hash_map, sign, verify
+from .exceptions import MessageDeserializationException, TransactionNotVerifiable
 from abc import ABC, abstractmethod, abstractclassmethod
 
 
@@ -9,7 +9,7 @@ class BaseMessage(ABC):
     identifier = None
 
     @classmethod
-    def unserialize(cls, bytes):
+    def deserialize(cls, bytes):
         """
         Returns original message instance
         :param bytes: message represented in bytes
@@ -29,7 +29,7 @@ class BaseMessage(ABC):
         :rtype: bytes
         """
         msg_bytes = self.dumps(self.to_dict())
-        return "b" + self.identifier.encode() + msg_bytes
+        return self.identifier.encode() + msg_bytes
 
     @abstractmethod
     def to_dict(self):
@@ -68,29 +68,32 @@ class Transaction(BaseMessage):
         id (str): hash of the transaction
         number (int): transaction index id.
         to (str): address of the recipient account.
+        from_ (str): address of the sender account.
         amount (int): amount of money spent by sender and credited to the recipient
         data (varies): attached data
-        signature:
+        signature: RSA signature created from the transaction message with sender's private key
     """
     identifier = "TXN"
-
-    def __init__(self, number, from_, to, id=None, amount=0, data=None, signature=None):
+    def __init__(self, number, from_, to=None, id=None, amount=0, data=None, signature=None):
         self.id = id
         self.number = number
-        self.to = to
         self.from_ = from_
+        self.to = to
         self.amount = amount
         self.data = data
-
         # RSA signature
         self.signature = signature
 
-    @property
-    def hash(self):
-        """Generates transaction id by hashing it."""
+    def generate_id(self):
         if self.id is None:
-            self.id = hash_map(self.to_dict())
+            self.id = self.get_hash()
         return self.id
+
+    def get_hash(self):
+        """Generates transaction hash."""
+        data = self.to_dict()
+        data.pop("signature", None)
+        return hash_map(data)
 
     @property
     def is_signed(self):
@@ -103,9 +106,17 @@ class Transaction(BaseMessage):
             self.signature = sign(private_key, msg_bytes)
         return self.signature
 
+    def verify(self):
+        """Verifies signatures of transaction"""
+        if self.signature is None:
+            raise TransactionNotVerifiable(self)
+        if verify(self.signature, self.serialize(), self.from_):
+            return True
+        return False
+
     def to_dict(self):
         data = {
-            "id": self.hash,
+            "id": self.id,
             "number": self.number,
             "to": self.to,
             "from": self.from_,

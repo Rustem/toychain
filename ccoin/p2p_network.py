@@ -1,4 +1,6 @@
 import logging
+from abc import abstractmethod
+
 import struct
 
 import msgpack
@@ -8,6 +10,8 @@ from twisted.internet.protocol import connectionDone, Factory
 from twisted.protocols.basic import IntNStringReceiver
 
 from ccoin.discovery import PeerDiscoveryService
+from ccoin.exceptions import NotSupportedMessage
+from ccoin.messages import Transaction
 from ccoin.peer_info import PeerInfo
 from twisted.python import log
 
@@ -68,7 +72,8 @@ class SimpleHandshakeProtocol(IntNStringReceiver):
             # handle handshake acknowledgement
             self.handle_hi_ack(msg)
         else:
-            self.factory.message_callback(msg_type, string, self)
+            raise NotSupportedMessage(msg_type)
+
 
     def handle_hi(self, msg):
         """Handles incoming handshake message by persisting the details of connected peer and
@@ -102,6 +107,15 @@ class SimpleHandshakeProtocol(IntNStringReceiver):
         self.sendString(b'ACK' + s)
 
 
+class BasePeerConnection(SimpleHandshakeProtocol):
+
+    def stringReceived(self, string):
+        try:
+            super(BasePeerConnection, self).stringReceived(string)
+        except NotSupportedMessage as exc:
+            self.factory.message_callback(exc.msg_type, string, self)
+
+
 class BasePeer(Factory):
     """This class defines the logic of representing the peer and its connected peers consistently.
 
@@ -131,7 +145,7 @@ class BasePeer(Factory):
         return self.peers[self.id]
 
     def buildProtocol(self, addr):
-        return SimpleHandshakeProtocol(self)
+        return BasePeerConnection(self)
 
     @staticmethod
     def got_protocol(p):
@@ -165,17 +179,9 @@ class BasePeer(Factory):
         """
         if peer.id not in self.peers_connection:
             point = TCP4ClientEndpoint(reactor, peer.ip, peer.port)
-            d = connectProtocol(point, SimpleHandshakeProtocol(self))
+            d = connectProtocol(point, BasePeerConnection(self))
             d.addCallback(self.got_protocol)
             d.addErrback(self.fail_got_protocol, peer.id)
-    #
-    # def run_p2p(self, port):
-    #     """Starts a server listening on a port given in peers dict and then connect to other peers."""
-    #     endpoint = TCP4ServerEndpoint(reactor, port)
-    #     d = endpoint.listen(self)
-    #     d.addCallback(self.p2p_listen_ok)
-    #     d.addErrback(log.err)
-    #     reactor.run()
 
     @defer.inlineCallbacks
     def p2p_listen_ok(self, portObject):
@@ -206,10 +212,50 @@ class BasePeer(Factory):
         self.peers_connection.pop(peer_node_id, None)
         self.peers.pop(peer_node_id, None)
 
+    def broadcast(self, msg_object, msg_type):
+        """
+        Broadcast message object to each known peer.
+        :param msg_object: Message instance (Transaction, Block, etc.)
+        :type msg_object: Message
+        :param msg_type: 3-chars description of Message instance
+        :type msg_type: str
+        """
+        logger.debug('broadcast: %s', msg_type)
+        msg_bytes = msg_object.serialize()
+        for peer_id, peer_conn in self.peers_connection.items():
+            peer_conn.sendString(msg_bytes)
+
+    def respond(self, msg_object, sender):
+        """
+        Respond with message object to the sender.
+        :param msg_object: Message instance (Transaction, Block, etc.)
+        :type msg_object: Message
+        :param sender: The connection between this node and the sender of the message
+        :type sender: BasePeerConnection
+        """
+        logger.debug("Respond from=%s to=%s", sender.peer_node_id, sender.node_id)
+        msg_bytes = msg_object.serialize()
+        sender.sendString(msg_bytes)
+
     def parse_msg(self, msg_type, msg, sender):
+        if msg_type == "TXN":
+            obj = Transaction.deserialize(msg)
+            self.receive_transaction(obj)
+            return
+        elif msg_type == "BLK":
+            obj = None #Block.deserialize(msg)
+            self.receive_block(obj)
+            return
         raise NotImplementedError("Can\'t parse %s: %s" % (msg_type, msg))
 
+    @abstractmethod
+    def receive_transaction(self, transaction):
+        """Handles new transaction."""
+        pass
 
-
+    @abstractmethod
+    def receive_block(self, block):
+        """Handles new block."""
+        pass
 
 

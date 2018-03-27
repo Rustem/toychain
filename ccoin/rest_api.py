@@ -37,17 +37,36 @@ class RootResource(JSONP2PRelayResource):
         return resource.Resource.getChild(self, name, request)
 
 
-class JsonApiResource(JSONP2PRelayResource):
-    isLeaf = True
+class NodeResource(JSONP2PRelayResource):
+    isLeaf = False
+
+    def getChild(self, name, request):
+        if name == b"":
+            return self
+        return resource.Resource.getChild(self, name, request)
 
     def render_GET(self, request):
         request.responseHeaders.addRawHeader(b"content-type", b"application/json")
         return {"peers": len(self.node.peers_connection)}
 
 
+class TransactionManageResource(JSONP2PRelayResource):
+    isLeaf = True
+
+    def render_POST(self, request):
+        data = json.loads(request.content.getvalue().decode())
+        txn = self.node.make_transfer_txn(data["sendto_address"], data["amount"])
+        txn_id = self.node.relay_txn(txn)
+        print("TransactionId", txn_id)
+        return txn.to_dict()
+
 def run_http_api(node, port, callback=None, errback=None):
     RestApi = RootResource(node)
-    RestApi.putChild(node.id.encode(), JsonApiResource())
+    node_resource = NodeResource()
+    RestApi.putChild(node.id.encode(), node_resource)
+    # manage transaction resource
+    node_resource.putChild(b"txn", TransactionManageResource())
+
     site = server.Site(RestApi)
 
     http_endpoint = TCP4ServerEndpoint(reactor, port)
