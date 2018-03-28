@@ -17,6 +17,7 @@ Project is developed with twisted networking tools.
 7. Mine block with Proof-of-Authority (March 30, 2018)
 
 ## Current Todos
+1. Blocks must be signed
 1. Tools for generating genesis transaction
 2. Load Node with blockchain loaded
 3. Miner logic: Aggregate new transactions in the in-memory transaction pool
