@@ -14,6 +14,11 @@ class AccountDoesNotExist(NodeCannotBeStartedException):
         return "Node cannot be started: Account does not exists for the user with id=%s." % self.node_id
 
 
+class GenesisBlockIsRequired(NodeCannotBeStartedException):
+
+    def __str__(self):
+        return "Genesis block should be generated or downloaded from other peers"
+
 class MessageDeserializationException(BaseException):
 
     def __init__(self, actual_msg_type, expected_msg_type):

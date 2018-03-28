@@ -1,10 +1,11 @@
 from twisted.internet import defer
 from twisted.python import log
 from ccoin.accounts import AccountProvider, AccountUpdater
+from ccoin.blockchain import Blockchain
 from ccoin.exceptions import AccountDoesNotExist, TransactionVerificationException
 from ccoin.messages import Transaction
 from ccoin.p2p_network import BasePeer
-
+import ccoin.settings as ns
 
 # ~/.ccoin/blockchain
 # ~/.ccoin/.keys/
@@ -20,6 +21,13 @@ class ChainNode(BasePeer):
 
     @defer.inlineCallbacks
     @classmethod
+    def load(cls, account_id):
+        new_node = yield cls.withAccount(account_id)
+        new_node.load_chain()
+        defer.returnValue(new_node)
+
+    @defer.inlineCallbacks
+    @classmethod
     def withAccount(cls, account_id):
         """
         Initializes and returns node with account object.
@@ -31,11 +39,14 @@ class ChainNode(BasePeer):
         """
         new_node = ChainNode(account_id)
         yield new_node.load_account()
-        return new_node
+        defer.returnValue(new_node)
 
-    def __init__(self, uuid):
-        super(ChainNode, self).__init__(uuid)
+    def __init__(self, account_id, state=ns.BOOT_STATE):
+        super(ChainNode, self).__init__(account_id)
         self.account = None
+        self.chain = None
+        self.allow_mine = False
+        self.state = state
 
     @defer.inlineCallbacks
     def load_account(self):
@@ -45,6 +56,10 @@ class ChainNode(BasePeer):
         self.account_updater = AccountUpdater(self.account)
         if not self.account:
             raise AccountDoesNotExist(self.id)
+
+    def load_chain(self):
+        self.chain = Blockchain.load(self.account.id)
+        self.allow_mine = self.chain.genesis_block.can_mine(self.account.public_key)
 
     def receive_transaction(self, transaction):
         try:

@@ -1,6 +1,7 @@
 # https://cryptography.io/en/latest/hazmat/primitives/asymmetric/dsa/
 import msgpack
 import base64
+import binascii
 from cryptography.hazmat.primitives.asymmetric import utils
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
@@ -70,10 +71,9 @@ def hash_message(message_bytes):
     hasher = hashes.Hash(hash_backend, default_backend())
     hasher.update(message_bytes)
     digest = hasher.finalize()
-    return digest
+    return binascii.hexlify(digest).decode()
 
 
 def hash_map(data):
     msg_bytes = msgpack.packb(sorted(data.items()))
-    hashstr = hash_message(msg_bytes)
-    return base64.b64encode(hashstr).decode()
+    return hash_message(msg_bytes)

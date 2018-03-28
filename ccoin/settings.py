@@ -1,0 +1,1 @@
+NODE_STATES = (GENESIS_STATE, BOOT_STATE, READY_STATE, STOPPING, DEAD, ) = ("g", "b", "r", "s", "d")
