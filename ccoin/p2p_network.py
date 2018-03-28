@@ -132,6 +132,7 @@ class BasePeer(Factory):
         self.id = uuid
         self.peers_connection = {}
         self.peers = {}
+        # TODO make it as http client
         self.discovery_service = PeerDiscoveryService()
         self.message_callback = self.parse_msg
         self.reconnect_loop = None
@@ -190,6 +191,7 @@ class BasePeer(Factory):
         # Start HTTP RPC server
         yield run_http_api(self, host.port + 1, callback=self.http_listen_ok, errback=log.err)
         # P2P Network bootstrap
+        # TODO replace it with http discover client
         yield self.discovery_service.initialize()
         yield self.discovery_service.add_member(PeerInfo(host.host, host.port, self.id))
         yield self.bootstrap_network()
