@@ -16,6 +16,12 @@ Project is developed with twisted networking tools.
 6. Relay block to the chain network (March 29, 2018)
 7. Mine block with Proof-of-Authority (March 30, 2018)
 
+## Current Todos
+1. Tools for generating genesis transaction
+2. Load Node with blockchain loaded
+3. Miner logic: Aggregate new transactions in the in-memory transaction pool
+ 
+
 ## Requirements
 
 Python 3.6, pip
