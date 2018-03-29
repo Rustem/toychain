@@ -1,6 +1,7 @@
 from twisted.internet import defer
 from twisted.python import log
-from ccoin.accounts import AccountProvider, AccountUpdater
+from ccoin.accounts import Account
+from ccoin.app_conf import AppConfig
 from ccoin.blockchain import Blockchain
 from ccoin.exceptions import AccountDoesNotExist, TransactionVerificationException
 from ccoin.messages import Transaction
@@ -21,44 +22,38 @@ class ChainNode(BasePeer):
 
     @defer.inlineCallbacks
     @classmethod
-    def load(cls, account_id):
-        new_node = yield cls.withAccount(account_id)
+    def load(cls):
+        new_node = cls.withAccount()
         new_node.load_chain()
         defer.returnValue(new_node)
 
-    @defer.inlineCallbacks
     @classmethod
-    def withAccount(cls, account_id):
+    def withAccount(cls):
         """
         Initializes and returns node with account object.
-        :param account_id: account identifier
-        :type account_id: str
         :return: object instance of ChainNode factory
         :rtype: BasePeer
         :raises: NodeCannotBeStartedException if account does not exists
         """
-        new_node = ChainNode(account_id)
-        yield new_node.load_account()
-        defer.returnValue(new_node)
+        address = AppConfig["account_address"]
+        new_node = ChainNode(address)
+        new_node.load_account()
+        return new_node
 
-    def __init__(self, account_id, state=ns.BOOT_STATE):
-        super(ChainNode, self).__init__(account_id)
+    def __init__(self, address, state=ns.BOOT_STATE):
+        super(ChainNode, self).__init__(address)
         self.account = None
         self.chain = None
         self.allow_mine = False
         self.state = state
 
-    @defer.inlineCallbacks
     def load_account(self):
-        account_provider = AccountProvider()
-        yield account_provider.initialize()
-        self.account = yield account_provider.get_by_id(self.id, with_private_key=True)
-        self.account_updater = AccountUpdater(self.account)
+        self.account = Account.fromConfig()
         if not self.account:
             raise AccountDoesNotExist(self.id)
 
     def load_chain(self):
-        self.chain = Blockchain.load(self.account.id)
+        self.chain = Blockchain.load(self.account.address)
         self.allow_mine = self.chain.genesis_block.can_mine(self.account.public_key)
 
     def receive_transaction(self, transaction):

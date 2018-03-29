@@ -13,7 +13,7 @@
   "max_peers": 0,
   "genesis_block": {
     "coinbase": "", // coinbase address
+    "coinbase_reward": 100,
     "difficulty": 4
-  },
-  "discover_service": ["192.168.0.1", 8000, "http"]
+  }
 }

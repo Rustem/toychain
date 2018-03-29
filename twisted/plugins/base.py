@@ -1,5 +1,8 @@
 from twisted.application import service
 from twisted.internet import defer, reactor
+from twisted.python import log
+
+from ccoin.app_conf import configure_from_file
 
 
 class ExecuteAndForgetService(service.Service):
@@ -12,11 +15,22 @@ class ExecuteAndForgetService(service.Service):
     def startService(self):
         service.Service.startService(self)
         result = yield self.call[0](*self.call[1], **self.call[2])
-        # shutting down reactor
-        reactor.stop()
-
+        self.stopService()
 
     def stopService(self):
         service.Service.stopService(self)
         if self.callId and self.callId.active():
             self.callId.cancel()
+        reactor.callFromThread(reactor.stop)
+
+
+class Configurable(object):
+
+    def configure(self, options):
+        # Ensures application is configured prior to any calls
+        try:
+            configure_from_file(options["config"])
+        except FileNotFoundError:
+            log.err()
+            reactor.stop()
+            return

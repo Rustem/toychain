@@ -4,40 +4,33 @@ from twisted.plugin import IPlugin
 from twisted.python import usage, log
 from zope.interface import implementer
 
-from ccoin.accounts import AccountCreator
-from twisted.plugins.base import ExecuteAndForgetService
+from ccoin.accounts import Account
+from twisted.plugins.base import ExecuteAndForgetService, Configurable
 
 
 class Options(usage.Options):
 
     optParameters = [
-        ['nodeid', 'n', None, 'Node identifier'],
-        ['is_miner', 'im', False, 'Whether this account has miner privilledge'],
-        ['balance', 'b', 0, 'Initial account balance'],
+        ['config', 'c', 'ccoin.json', 'Application config file'],
     ]
 
 
 @defer.inlineCallbacks
-def create_account(uid, is_miner=False, balance=0):
-    account_creator = AccountCreator()
-    yield account_creator.initialize()
-    account = yield account_creator.create(uid, is_miner=is_miner, balance=balance)
-    defer.returnValue(account)
-    log.msg("Created account: %s" % account.to_dict())
+def create_account():
+    """Generates public/private keys under the specified path"""
+    account = yield defer.maybeDeferred(Account.create)
+    log.msg("Created account: %s" % account.address)
 
 
 @implementer(service.IServiceMaker, IPlugin)
-class CreateAccountServiceMaker(object):
+class CreateAccountServiceMaker(Configurable):
     tapname = "create-account"
     description = "Creates blockchain network account."
     options = Options
 
     def makeService(self, options):
-        nodeid = options['nodeid']
-        is_miner = options['is_miner']
-        balance = int(options['balance'])
-        return ExecuteAndForgetService(create_account, nodeid, balance=balance)
-
+        self.configure(options)
+        return ExecuteAndForgetService(create_account)
 
 
 service_maker = CreateAccountServiceMaker()
