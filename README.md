@@ -13,14 +13,16 @@ Project is developed with twisted networking tools.
 3. Run new node from Genesis Block (March 28, 2018) - doing
 4. Aggregate Transactions under TransactionPool (March 28, 2018)
 5. Generate block from transactions under TransactionPool and commit block to blockchain (March 29, 2018) 
-6. Relay block to the chain network (March 29, 2018)
+6. Relay block to the chain network (March 29, 2018) (doing)
+7. Design World state (done)
+7. Apply block and transaction to the chain and world state (done)
 7. Mine block with Proof-of-Authority (March 30, 2018)
 
 ## Current Todos
-1. Blocks must be signed
-1. Tools for generating genesis transaction
-2. Load Node with blockchain loaded
-3. Miner logic: Aggregate new transactions in the in-memory transaction pool
+1. Update readme
+2. Genesis tools and genesis block
+3. Define Transaction pool
+
  
 
 ## Requirements
@@ -58,11 +60,35 @@ python setup.py install
 
 ## Usage
 All communication with application is handled using microservices (a.k.a twisted plugins). In order to run
-blockchain node, firstly it is necessary to create account with generated keypair and (non-zero) balance:
+blockchain node, firstly it is necessary to create account with generated keypair:
 
 ```bash
-twistd -n create-account --nodeid=1 --balance=120
+twistd -n create-account -c ccoin.json
 ```
+
+As a result you should see something similar to:
+```bash
+2018-03-29T16:55:37+0600 [-] Created account: 968414e683062785876545154556573356357415
+2018-03-29T16:55:37+0600 [-] Main loop terminated.
+```
+
+Configure configuraiton file ccoin.json to include new account address:
+```json
+{
+  "app": {
+    "base_path": "/Users/rustem/.ccoin"
+  },
+  "client": {
+    "account_address": "968414e683062785876545154556573356357415"
+  },
+  "discovery_service": {
+      "host": "127.0.0.1",
+      "port": 8000,
+      "proto": "http"
+  }
+}
+```
+
 
 Blockchain node is represented by ChainNode entity. Having just created account, it is possible to run an instance
 of ChainNode with the following command:
