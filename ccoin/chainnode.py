@@ -67,6 +67,7 @@ class ChainNode(BasePeer):
         self.state = WorldState.load(AppConfig["state_path"], self.account.address)
 
     def receive_transaction(self, transaction):
+        # TODO catch exception and log it
         try:
             transaction.verify()
         except TransactionApplyException:
@@ -76,7 +77,8 @@ class ChainNode(BasePeer):
             log.msg("Incoming Transaction with id=%s verified successfully." % transaction.id)
 
     def receive_block(self, block):
-        self.receive_block(block)
+        # TODO catch exception and log it
+        self.chain.apply_block(block, worldstate=self.state)
 
     def make_transfer_txn(self, sendto_address, amount):
         """
