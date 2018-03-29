@@ -1,5 +1,4 @@
 import os
-from twisted.enterprise import adbapi
 from twisted.internet import defer
 
 from ccoin.base import SharedDatabaseServiceMixin

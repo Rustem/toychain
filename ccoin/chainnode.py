@@ -3,8 +3,7 @@ from twisted.python import log
 from ccoin.accounts import Account
 from ccoin.app_conf import AppConfig
 from ccoin.blockchain import Blockchain
-from ccoin.exceptions import AccountDoesNotExist, TransactionVerificationException
-from ccoin.messages import Transaction
+from ccoin.exceptions import AccountDoesNotExist, TransactionApplyException
 from ccoin.p2p_network import BasePeer
 import ccoin.settings as ns
 
@@ -15,7 +14,7 @@ import ccoin.settings as ns
 # TODO 2. Node can connect to P2P Network with already loaded account (done)
 # TODO 3. P2P listen Port select automatically (done)
 # TODO 4. Node can send transactions signed by account's private key
-
+from ccoin.worldstate import WorldState
 
 
 class ChainNode(BasePeer):
@@ -25,6 +24,7 @@ class ChainNode(BasePeer):
     def load(cls):
         new_node = cls.withAccount()
         new_node.load_chain()
+        new_node.load_state()
         defer.returnValue(new_node)
 
     @classmethod
@@ -40,12 +40,19 @@ class ChainNode(BasePeer):
         new_node.load_account()
         return new_node
 
-    def __init__(self, address, state=ns.BOOT_STATE):
+    def __init__(self, address, fsm_state=ns.BOOT_STATE):
+        """
+        :ivar state: WorldState
+        :type state: WorldState
+        :ivar chain: Blockchain reference
+        :type chain: Blockchain
+        """
         super(ChainNode, self).__init__(address)
         self.account = None
-        self.chain = None
         self.allow_mine = False
-        self.state = state
+        self.fsm_state = fsm_state
+        self.state = None  # world state
+        self.chain = None
 
     def load_account(self):
         self.account = Account.fromConfig()
@@ -53,20 +60,23 @@ class ChainNode(BasePeer):
             raise AccountDoesNotExist(self.id)
 
     def load_chain(self):
-        self.chain = Blockchain.load(self.account.address)
+        self.chain = Blockchain.load(AppConfig["chain_path"], self.account.address)
         self.allow_mine = self.chain.genesis_block.can_mine(self.account.public_key)
+
+    def load_state(self):
+        self.state = WorldState.load(AppConfig["state_path"], self.account.address)
 
     def receive_transaction(self, transaction):
         try:
-            # TODO make a function verify_transaction that checks full process
             transaction.verify()
-        except TransactionVerificationException:
+        except TransactionApplyException:
             log.msg("Incoming Transaction with id=%s failed to verify." % transaction.id)
         else:
+            # TODO Add transaction to the pool
             log.msg("Incoming Transaction with id=%s verified successfully." % transaction.id)
 
     def receive_block(self, block):
-        pass
+        self.receive_block(block)
 
     def make_transfer_txn(self, sendto_address, amount):
         """
@@ -74,7 +84,7 @@ class ChainNode(BasePeer):
         :param sendto_address: public key of recepient
         :param amount: amount of money sender is wishing to spend
         :return:
-        :rtype:
+        :rtype: ccoin.messages.Transaction
         """
         return self.make_txn(to=sendto_address, amount=amount)
 
@@ -84,18 +94,17 @@ class ChainNode(BasePeer):
         :type command: str
         :param to: recipient address
         :param amount: amount of money to send to
-        :return: transaction id
-        :rtype: str
+        :return: Transaction reference
+        :rtype: ccoin.messages.Transaction
         """
-        self.account_updater.increment_nonce()
-        txn = Transaction(self.account.nonce, self.account.public_key, to=to, amount=amount, data=command)
+        txn = self.state.make_txn(command=command, to=to, amount=amount)
         return txn
 
     def relay_txn(self, transaction):
         """
         Sends transaction to the network and returns it's id.
         :param transaction: object instance of Transaction
-        :type transaction: Transaction
+        :type transaction: ccoin.messages.Transaction
         :return: transaction id
         :rtype: str
         """

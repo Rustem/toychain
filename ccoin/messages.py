@@ -2,7 +2,7 @@ import msgpack
 import time
 import json
 from ccoin.security import hash_map, sign, verify, hash_message
-from .exceptions import MessageDeserializationException, TransactionNotVerifiable
+from .exceptions import MessageDeserializationException, TransactionNotVerifiable, TransactionBadSignature
 from abc import ABC, abstractmethod, abstractclassmethod
 
 
@@ -21,7 +21,7 @@ class BaseMessage(ABC):
         """
         msg_type = bytes[:3].decode()
         if cls.identifier != msg_type:
-            raise MessageDeserializationException(self.identifier, msg_type)
+            raise MessageDeserializationException(cls.identifier, msg_type)
         return cls.from_dict(cls.loads(bytes[3:]))
 
     def serialize(self):
@@ -87,6 +87,14 @@ class Transaction(BaseMessage):
         # RSA signature
         self.signature = signature
 
+    @property
+    def sender(self):
+        return self.from_
+
+    @property
+    def recipient(self):
+        return self.to
+
     def generate_id(self):
         if self.id is None:
             self.id = self.get_hash()
@@ -114,8 +122,8 @@ class Transaction(BaseMessage):
         if self.signature is None:
             raise TransactionNotVerifiable(self)
         if verify(self.signature, self.serialize(), self.from_):
-            return True
-        return False
+            return
+        raise TransactionBadSignature(self)
 
     def to_dict(self):
         data = {
@@ -156,6 +164,9 @@ class TransactionList(object):
     def calc_hash(self):
         txn_ids = [txn.id for txn in self.txns]
         return hash_message(msgpack.packb(txn_ids))
+
+    def __iter__(self):
+        return self.txns
 
     @property
     def coinbase(self):
