@@ -251,7 +251,7 @@ class WorldState(object):
         # Check is enough balance to spend
         if sender_state.balance - transaction.amount < 0:
            raise TransactionSenderIsOutOfCoins(transaction)
-        self.incr_nonce(transaction.sender)
+        self.incr_nonce(transaction.sender, +1)
         self.incr_balance(transaction.sender, -1 * transaction.amount)
         self.incr_balance(transaction.recipient, -1 * transaction.amount)
         # Debig/Credit
