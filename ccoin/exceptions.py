@@ -84,6 +84,16 @@ class BlockPoWFailed(BlockApplyException):
         return "Miner computed block's proof-of-work incorrectly"
 
 
+class MiningBlockFailed(BlockApplyException):
+
+    def __str__(self):
+        return "Block=%s failed to be mined" % self.block.mining_hash
+
+
+class MiningGenesisBlockFailed(MiningBlockFailed):
+    pass
+
+
 class TransactionApplyException(BaseException):
 
     def __init__(self, txn):

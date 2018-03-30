@@ -203,6 +203,10 @@ class WorldState(object):
         # TODO implement
         raise NotImplementedError("")
 
+    def commit(self):
+        # TODO implement
+        raise NotImplementedError("")
+
     def apply_txns(self, txn_list):
         """
         :param block:

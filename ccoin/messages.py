@@ -216,11 +216,9 @@ class Block(BaseMessage):
     def is_mined(self):
         return self.time is not None
 
-    def generate_id(self):
-        if not self.id:
-            block_hash = self.get_hash()
-            self.id = self.get_pow_hash(self.nonce, block_hash)
-        return self.id
+    @property
+    def mining_hash(self):
+        return self.get_hash()
 
     def set_timestamp(self):
         if not self.time:
@@ -241,10 +239,6 @@ class Block(BaseMessage):
             concat_str += self.data
         concat_bytes = concat_str.encode()
         return hash_message(concat_bytes)
-
-    def verify(self):
-        """Verifies block is mined by miner."""
-        return self.id == self.get_pow_hash(self.nonce, self.get_hash())
 
     def get_pow_hash(self, nonce, block_hash):
         concat_str = "%s%s" % (nonce, block_hash)

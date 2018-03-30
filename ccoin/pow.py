@@ -1,25 +1,59 @@
-def proof_of_work(block):
+from ccoin.security import hash_message
+
+
+def proof_of_work(difficulty, mining_hash, start_nonce=0, rounds=100000):
     """
-    Simple proof of work.
-    :param block: Block instance
-    :type block: Block
+    Simple hashimoto proof of work.
+    :param difficulty: mining difficulty
+    :type difficulty: int
+    :param mining_hash: mining hash
+    :type mining_hash: str
     :return: tuple of nonce and proof-of-work hash
     :rtype: tuple[int, str]
     """
-    nonce = 0
-    difficulty = block.difficulty
-    while is_valid(difficulty, block.get_pow_hash(nonce, block.get_hash())) is False:
+    nonce = start_nonce - 1
+    isvalid = False
+    pow_hash = None
+    attempt = 0
+    while isvalid is False and attempt <= rounds:
+        concat_str = "%s%s" % (nonce + 1, mining_hash)
+        pow_hash = hash_message(concat_str.encode())
+        isvalid = is_valid(difficulty, pow_hash)
         nonce += 1
-    pow_hash = block.get_pow_hash(nonce, block.get_hash())
-    return nonce, pow_hash
+    if isvalid:
+        return nonce, pow_hash
+    return None, None
 
 
 def is_valid(difficulty, pow_hash):
-    return pow_hash[:difficulty] == "0" * difficulty
+    n = len(pow_hash)
+    cnt = 0
+    for i in range(n):
+        if pow_hash[i] != '0':
+            break
+        cnt += 1
+    return cnt >= difficulty
 
+
+def verify(difficulty, mining_hash, nonce, expected_pow_hash):
+    concat_str = "%s%s" % (nonce + 1, mining_hash)
+    actual_pow_hash = hash_message(concat_str.encode())
+    if actual_pow_hash != expected_pow_hash:
+        raise False
+    return is_valid(difficulty, expected_pow_hash)
 
 
 class Miner(object):
+
+    """
+    Mines on the current head
+    Stores received transactions
+    The process of finalising a block involves four stages:
+    1) validate (or, if mining, determine) transactions;
+    2) apply rewards;
+    3) verify (or, if mining, compute a valid) state and nonce.
+    :param block: the block for which to find a valid nonce
+    """
 
     def __init__(self, block):
         self.nonce = 0
@@ -30,20 +64,19 @@ class Miner(object):
         #           block_difficulty=self.block.difficulty)
         #
 
-    def mine(self, rounds=1000, start_nonce=0):
+    def mine(self, rounds=100000, start_nonce=0):
         """
-        :param rounds:
+        Mines block with simple pow algorithm based on hashimoto.
+        :param rounds: max allowed rounds
         :param start_nonce:
         :return: block
         :rtype: Block
         """
-        # TODO implement
-        pass
-        # blk = self.block
-        # bin_nonce, mixhash = mine(blk.number, blk.difficulty, blk.mining_hash,
-        #                           start_nonce=start_nonce, rounds=rounds)
-        # if bin_nonce:
-        #     blk.header.mixhash = mixhash
-        #     blk.header.nonce = bin_nonce
-        #     # assert blk.check_pow()
-        #     return blk
+        blk = self.block
+        nonce, pow_hash = proof_of_work(blk.difficulty, blk.mining_hash,
+                                           start_nonce=start_nonce, rounds=rounds)
+        if nonce:
+            blk.nonce = nonce
+            blk.id = pow_hash
+            assert verify(blk.difficulty, blk.mining_hash, nonce, pow_hash), "pow failed; check the code"
+            return blk

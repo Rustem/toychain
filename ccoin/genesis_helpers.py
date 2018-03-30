@@ -1,5 +1,7 @@
+from ccoin.exceptions import MiningGenesisBlockFailed
 from ccoin.messages import GenesisBlock
 from ccoin.app_conf import AppConfig
+from ccoin.pow import Miner
 from ccoin.worldstate import WorldState
 
 
@@ -29,14 +31,19 @@ def state_from_genesis_declaration(genesis_config, block=None):
     block.hash_state = state.calculate_hash()
     return state
 
+
 def mine_genesis_block(block):
     """
     :param block:
     :return: tuple of nonce, pow_hash
     :rtype: tuple[int, str]
     """
-    # TODO finish
-    pass
+    miner = Miner(block)
+    blk = miner.mine()
+    if blk is None:
+        raise MiningGenesisBlockFailed(block)
+    return blk
+
 
 def make_genesis_block(genesis_config):
     block = block_from_genesis_declaration(genesis_config)
