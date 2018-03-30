@@ -1,5 +1,6 @@
 import plyvel
 import json
+import os
 from ccoin.accounts import Account
 from ccoin.exceptions import TransactionBadNonce, TransactionSenderIsOutOfCoins, SenderStateDoesNotExist
 from ccoin.messages import Transaction
@@ -24,7 +25,7 @@ class AccountState(object):
         :return: message instance
         :rtype: Message
         """
-        return cls.from_dict(cls.loads(bytes[3:]))
+        return cls.from_dict(cls.loads(bytes.decode()))
 
     def serialize(self):
         """
@@ -62,8 +63,8 @@ class AccountState(object):
         return json.dumps(ds).encode(encoding="utf-8")
 
     @staticmethod
-    def loads(bytes):
-        return json.loads(bytes, encoding="utf-8")
+    def loads(json_data):
+        return json.loads(json_data)
 
 
 class WorldState(object):
@@ -72,15 +73,17 @@ class WorldState(object):
 
 
     @classmethod
-    def load(cls, state_path, block_height):
+    def load(cls, storage_path, db_name, block_height):
         """
         Initializes Worldstate with necessary properties and returns it
         :return: worldstate instance
         :rtype: WorldState
         """
-        ensure_dir(state_path)
-        db = plyvel.DB(state_path, create_if_missing=True)
+        ensure_dir(storage_path)
+        db = plyvel.DB(os.path.join(storage_path, db_name), create_if_missing=True)
         state_hash = db.get(b"state_hash", None)
+        if state_hash:
+            state_hash = state_hash.decode()
         return WorldState(db, block_height, state_hash)
 
     def __init__(self, db, block_height, state_hash=None):
@@ -155,18 +158,19 @@ class WorldState(object):
         """
         if account_addr not in self.cache:
             key = self.to_key(self.height, account_addr)
-            try:
-                self.cache[account_addr] = AccountState(self.db[key])
-            except KeyError:
+            account_bytes = self.db.get(key)
+            if account_bytes is not None:
+                self.cache[account_addr] = AccountState.deserialize(account_bytes)
+            else:
                 if create is False:
                     return None
                 self.cache[account_addr] = AccountState(account_addr)
-            finally:
-                return self.cache.get(account_addr, None)
+        return self.cache.get(account_addr, None)
+
 
     def set_state_hash(self, state_hash):
         self.state_hash = state_hash
-        self.db[b"state_hash"] = self.state_hash
+        self.db.put(b"state_hash", self.state_hash.encode())
 
     def calculate_hash(self):
         concat = []
@@ -196,19 +200,19 @@ class WorldState(object):
         return txn
 
     def set_balance(self, addr, balance):
-        account_state = self.account_state(addr)
+        account_state = self.account_state(addr, create=True)
         account_state.balance = balance
 
     def incr_balance(self, addr, increment_value):
-        account_state = self.account_state(addr)
+        account_state = self.account_state(addr, create=True)
         account_state.balance += increment_value
 
     def incr_nonce(self, addr, increment_value):
-        account_state = self.account_state(addr)
+        account_state = self.account_state(addr, create=True)
         account_state.nonce += increment_value
 
     def set_nonce(self, addr, nonce):
-        account_state = self.account_state(addr)
+        account_state = self.account_state(addr, create=True)
         account_state.nonce = nonce
 
     def commit(self):
@@ -217,7 +221,7 @@ class WorldState(object):
             # TODO may be log here
             return
         with self.db.write_batch(transaction=True) as wb:
-            for account_addr, account_state in self.cache:
+            for account_addr, account_state in self.cache.items():
                 account_key = self.to_key(self.height, account_addr)
                 wb.put(account_key, account_state.serialize())
         self.set_state_hash(self.calculate_hash())

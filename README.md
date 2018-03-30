@@ -67,6 +67,38 @@ blockchain node, firstly it is necessary to create account with generated keypai
 twistd -n create-account -c ccoin.json
 ```
 
+Then you have to initialize blockchain by generating genesis block
+
+```json
+{
+  "network_id": 1,
+  "miners": ["968414a7573534a414f4f704b51366f536751764", "968414c6a686a74316a615a4d364f4f317164624"],
+  "block_mining": {
+    "interval": 600, // mine block each 10 minutes
+    "max_bound": 100,  // hundred transactions per block is max
+    "min_bound": 10, // 10 transactions per block is min
+    "reward": 100, // 100 coins is coinbase transaction in every block mined by miner
+    "difficulty": 5, // mining difficulty
+    "allow_empty": true, // allow empty block
+    "placeholder_data": ["rnd", 15] // if empty block get mined it will be extended with extra 15 bits of data
+  },
+  "max_peers": 0,
+  "genesis_block": {
+    "coinbase": "", // coinbase address
+    "coinbase_reward": 100,
+    "difficulty": 4
+  },
+  "alloc": {
+    "968414d67505a526b6b34614d354d34546734584": {
+      "balance": 10000000
+    },
+    "968414c6a686a74316a615a4d364f4f317164624": {
+      "balance": 100
+    }
+  }
+}
+```
+
 As a result you should be able to see a created account address message:
 ```bash
 2018-03-29T16:55:37+0600 [-] Created account with address=968414e683062785876545154556573356357415

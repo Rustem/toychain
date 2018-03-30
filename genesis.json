@@ -2,17 +2,17 @@
   "network_id": 1,
   "miners": ["968414a7573534a414f4f704b51366f536751764", "968414c6a686a74316a615a4d364f4f317164624"],
   "block_mining": {
-    "interval": 600, // mine block each 10 minutes
-    "max_bound": 100,  // hundred transactions per block is max
-    "min_bound": 10, // 10 transactions per block is min
-    "reward": 100, // 100 coins is coinbase transaction in every block mined by miner
-    "difficulty": 5, // mining difficulty
-    "allow_empty": true, // allow empty block
-    "placeholder_data": ["rnd", 15] // if empty block get mined it will be extended with extra 15 bits of data
+    "interval": 600,
+    "max_bound": 100,
+    "min_bound": 10,
+    "reward": 100,
+    "difficulty": 5,
+    "allow_empty": true,
+    "placeholder_data": ["rnd", 15]
   },
   "max_peers": 0,
   "genesis_block": {
-    "coinbase": "", // coinbase address
+    "coinbase": "968414d67505a526b6b34614d354d34546734584",
     "coinbase_reward": 100,
     "difficulty": 4
   },

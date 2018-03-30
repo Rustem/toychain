@@ -1,6 +1,8 @@
 import msgpack
 import time
 import json
+
+from ccoin import settings
 from ccoin.security import hash_map, sign, verify, hash_message
 from .exceptions import MessageDeserializationException, TransactionNotVerifiable, TransactionBadSignature
 from abc import ABC, abstractmethod, abstractclassmethod
@@ -76,6 +78,10 @@ class Transaction(BaseMessage):
         signature: RSA signature created from the transaction message with sender's private key
     """
     identifier = "TXN"
+
+    @classmethod
+    def coinbase(cls, number, to, reward):
+        return Transaction(number, None, to=to, amount=reward)
 
     def __init__(self, number, from_, to=None, id=None, amount=0, data=None, signature=None):
         self.id = id
@@ -207,6 +213,9 @@ class Block(BaseMessage):
         self.reward = reward
         self.difficulty = difficulty
 
+        if self.hash_txns is None and body:
+            self.get_transactions_hash()
+
     @property
     def coinbase_txn(self):
         """Return coinbase transaction"""
@@ -312,16 +321,18 @@ class GenesisBlock(Block):
             "genesis_block": config["genesis_block"]}
         json_data = json.dumps(data)
         genesis_block = cls(number=1,
-                            hash_parent=None,
+                            hash_parent=settings.BLANK_SHA_256,
                             body=None,
                             data=json_data,
                             nonce=1,)
         if "difficulty" in data["genesis_block"]:
             genesis_block.difficulty = data["genesis_block"]["difficulty"]
         if "coinbase" in data["genesis_block"]:
-            #TODO create coinbase transaction
-            genesis_block.transactions = []
-
+            genesis_data = data["genesis_block"]
+            coinbase_txn = Transaction.coinbase(1, genesis_data["coinbase"], genesis_data["coinbase_reward"])
+            genesis_block.body = TransactionList([coinbase_txn])
+            genesis_block.get_transactions_hash()
+        genesis_block.set_timestamp()
         return genesis_block
 
     def __init__(self, *args, **kwargs):

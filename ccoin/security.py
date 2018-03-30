@@ -9,8 +9,8 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
 
+from ccoin import settings
 
 
 def generate_private_key(public_exponent, key_size, backend):
@@ -81,6 +81,8 @@ def verify(base64_signature, message_bytes, public_hex):
 
 
 def hash_message(message_bytes):
+    if not message_bytes:
+        return settings.BLANK_SHA_256
     hash_backend = hashes.SHA256()
     hasher = hashes.Hash(hash_backend, default_backend())
     hasher.update(message_bytes)

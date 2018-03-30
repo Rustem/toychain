@@ -6,6 +6,7 @@ from ccoin.exceptions import GenesisBlockIsRequired, BlockChainViolated, BlockTi
     MiningGenesisBlockFailed
 from ccoin.network_conf import NetworkConf
 from ccoin.pow import verify as verify_pow, Miner
+from ccoin.utils import ensure_dir, int2bytes
 from .messages import Block, GenesisBlock
 
 
@@ -14,17 +15,17 @@ class Blockchain(object):
     SPECIAL_KEYS = (b"height",)
 
     @classmethod
-    def load(cls, chain_path, account_id):
+    def load(cls, storage_path, db_name, account_id):
         """
         Loads blockchain with necessary properties and returns it
         :return: blockchain instance
         :rtype: Blockchain
         """
-        if not os.path.exists(chain_path):
+        if not os.path.exists(storage_path):
             # Attention: blockchain is empty (even genesis block is not generated)
             # Either request it from the network or start your own
             raise GenesisBlockIsRequired(account_id)
-        db = plyvel.DB(chain_path, create_if_missing=False)
+        db = plyvel.DB(os.path.join(storage_path, db_name), create_if_missing=False)
         # load genesis block
         block_bytes = db.get(cls.to_key(0))
         if not block_bytes:
@@ -41,6 +42,24 @@ class Blockchain(object):
         head_key = cls.to_key(b"height")
         head = db.get(head_key)
         return Blockchain(db, genesis_block, height, head)
+
+    @classmethod
+    def create_new(cls, storage_path, db_name, genesis_block):
+        """
+        Creates new blockchain with genesis block
+        :param storage_path:
+        :param db_name:
+        :param genesis_block:
+        :type genesis_block: GenesisBlock
+        :return: blockchain instance
+        :rtype: Blockchain
+        """
+        ensure_dir(storage_path)
+        db = plyvel.DB(os.path.join(storage_path, db_name), create_if_missing=True)
+        block_key = cls.to_key(genesis_block.number)
+        db.put(block_key, genesis_block.serialize())
+        db.put(b"height", int2bytes(genesis_block.number))
+        return Blockchain(db, genesis_block, 0, genesis_block)
 
     @staticmethod
     def to_key(key):

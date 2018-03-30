@@ -7,8 +7,8 @@ AppConfig = LazyDict({
     "account_address": "",
     "storage_path": os.path.join("{base_path}", "{account_address}"),
     "key_dir": os.path.join("{storage_path}", ".keys"),
-    "chain_path": os.path.join("{storage_path}", "db", "blockchain"),
-    "state_path": os.path.join("{storage_path}", "db", "worldstate"),
+    "chain_db": "blockchain",
+    "state_db": "worldstate",
     "discovery_service": {
         "host": "192.168.0.1",
         "port": 8000,

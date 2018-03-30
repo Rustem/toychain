@@ -36,7 +36,7 @@ def is_valid(difficulty, pow_hash):
 
 
 def verify(difficulty, mining_hash, nonce, expected_pow_hash):
-    concat_str = "%s%s" % (nonce + 1, mining_hash)
+    concat_str = "%s%s" % (nonce, mining_hash)
     actual_pow_hash = hash_message(concat_str.encode())
     if actual_pow_hash != expected_pow_hash:
         raise False
@@ -56,6 +56,10 @@ class Miner(object):
     """
 
     def __init__(self, block):
+        """
+        :param block:
+        :type block: Block
+        """
         self.nonce = 0
         self.block = block
         # TODO Special log for mining output
@@ -70,11 +74,11 @@ class Miner(object):
         :param rounds: max allowed rounds
         :param start_nonce:
         :return: block
-        :rtype: Block
+        :rtype: ccoin.messages.Block
         """
         blk = self.block
         nonce, pow_hash = proof_of_work(blk.difficulty, blk.mining_hash,
-                                           start_nonce=start_nonce, rounds=rounds)
+                                        start_nonce=start_nonce, rounds=rounds)
         if nonce:
             blk.nonce = nonce
             blk.id = pow_hash

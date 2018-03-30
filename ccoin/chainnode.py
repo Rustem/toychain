@@ -51,11 +51,11 @@ class ChainNode(BasePeer):
             raise AccountDoesNotExist(self.id)
 
     def load_chain(self):
-        self.chain = Blockchain.load(AppConfig["chain_path"], self.account.address)
+        self.chain = Blockchain.load(AppConfig["storage_path"], AppConfig["chain_db"], self.account.address)
         self.allow_mine = self.chain.genesis_block.can_mine(self.account.public_key)
 
     def load_state(self):
-        self.state = WorldState.load(AppConfig["state_path"], self.account.address)
+        self.state = WorldState.load(AppConfig["storage_path"], AppConfig["state_db"], self.account.address)
 
     def receive_transaction(self, transaction):
         try:
