@@ -19,10 +19,10 @@ Project is developed with twisted networking tools.
 7. Mine block with Proof-of-Authority (March 30, 2018)
 
 ## Current Todos
-0. Update block with state root
-1. Ability to copy state from head to the new head.
-1. Genesis tools and genesis block
-2. Define Transaction pool
+1. Define Transaction pool
+3. Load node with blockchain and genesis config
+2. Aggregate transactions under transaction pool
+
 
  
 
@@ -88,7 +88,7 @@ Then you have to initialize blockchain by generating genesis block
     "coinbase_reward": 100,
     "difficulty": 4
   },
-  "alloc": {
+  "alloc": { // allocate initial balance among different accounts
     "968414d67505a526b6b34614d354d34546734584": {
       "balance": 10000000
     },
