@@ -9,7 +9,7 @@ Project is developed with twisted networking tools.
 1. Send and Receive Transactions (March 27, 2018) - done
 2. Verify signed transactions (March 27, 2018) - done
 3. Http API for relaying new transactions (March 27, 2018) - done
-2. Define Block and Blockchain data structures (March 28, 2018) - doing
+2. Define Block and Blockchain data structures (March 28, 2018) - done
 3. Run new node from Genesis Block (March 28, 2018) - doing
 4. Aggregate Transactions under TransactionPool (March 28, 2018)
 5. Generate block from transactions under TransactionPool and commit block to blockchain (March 29, 2018) 
@@ -19,9 +19,10 @@ Project is developed with twisted networking tools.
 7. Mine block with Proof-of-Authority (March 30, 2018)
 
 ## Current Todos
-1. Update readme
-2. Genesis tools and genesis block
-3. Define Transaction pool
+0. Update block with state root
+1. Ability to copy state from head to the new head.
+1. Genesis tools and genesis block
+2. Define Transaction pool
 
  
 
@@ -66,13 +67,13 @@ blockchain node, firstly it is necessary to create account with generated keypai
 twistd -n create-account -c ccoin.json
 ```
 
-As a result you should see something similar to:
+As a result you should be able to see a created account address message:
 ```bash
-2018-03-29T16:55:37+0600 [-] Created account: 968414e683062785876545154556573356357415
+2018-03-29T16:55:37+0600 [-] Created account with address=968414e683062785876545154556573356357415
 2018-03-29T16:55:37+0600 [-] Main loop terminated.
 ```
 
-Configure configuraiton file ccoin.json to include new account address:
+Then update configuration file ccoin.json to include new account address, under the path `client.account_address`:
 ```json
 {
   "app": {
@@ -90,27 +91,20 @@ Configure configuraiton file ccoin.json to include new account address:
 ```
 
 
-Blockchain node is represented by ChainNode entity. Having just created account, it is possible to run an instance
-of ChainNode with the following command:
+Finally, you can start blockchain node with by running a special service called `cnode`:
 
 ```bash
-twistd --pidfile twistd_1.pid --nodaemon cnode --nodeid=1
+twistd --pidfile=twistd_1.pid --nodaemon cnode -c ccoin.json
 ```
 
 If everything is created successfully you will be able to see a log similar to the one below:
 
 ```bash
-2018-03-27T15:19:52+0600 [twisted.scripts._twistd_unix.UnixAppLogger#info] twistd 17.9.0 (/Users/rustem/.virtualenvs/bchain-academy/bin/python3.5 3.5.2) starting up.
-2018-03-27T15:19:52+0600 [twisted.scripts._twistd_unix.UnixAppLogger#info] reactor class: twisted.internet.selectreactor.SelectReactor.
-2018-03-27T15:19:52+0600 [-] ChainNode starting on 63261
-2018-03-27T15:19:52+0600 [ccoin.chainnode.ChainNode#info] Starting factory <ccoin.chainnode.ChainNode object at 0x10580b8d0>
-2018-03-27T15:19:52+0600 [-] Site starting on 63262
-2018-03-27T15:19:52+0600 [twisted.web.server.Site#info] Starting factory <twisted.web.server.Site object at 0x10591e048>
-2018-03-27T15:19:52+0600 [-] HTTP API ENDPOINT Started got up and listening on port: 63262
-2018-03-27T15:19:52+0600 [-] ChainNode starting on 63263
-2018-03-27T15:19:52+0600 [-] Site starting on 63264
-2018-03-27T15:19:52+0600 [twisted.web.server.Site#info] Starting factory <twisted.web.server.Site object at 0x10591e4a8>
-2018-03-27T15:19:52+0600 [-] HTTP API ENDPOINT Started got up and listening on port: 63264
+
+2018-03-30T11:18:46+0600 [-] ChainNode starting on 49719
+2018-03-30T11:18:46+0600 [ccoin.chainnode.ChainNode#info] Starting factory <ccoin.chainnode.ChainNode object at 0x105352748>
+2018-03-30T11:18:46+0600 [twisted.web.server.Site#info] Starting factory <twisted.web.server.Site object at 0x10689bf98>
+2018-03-30T11:18:46+0600 [-] HTTP API ENDPOINT Started got up and listening on port: 49720
 ``` 
 The log above clearly indicates that the node has run as p2p endpoint on port 63263 as well as http api endpoint on port 63264.  
 

@@ -19,7 +19,7 @@ class Options(usage.Options):
 def create_account():
     """Generates public/private keys under the specified path"""
     account = yield defer.maybeDeferred(Account.create)
-    log.msg("Created account: %s" % account.address)
+    log.msg("Created account with address=%s" % account.address)
 
 
 @implementer(service.IServiceMaker, IPlugin)
