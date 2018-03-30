@@ -195,6 +195,14 @@ class WorldState(object):
         txn = Transaction(sender_state.nonce, from_, to=to, amount=amount, data=command)
         return txn
 
+    def set_balance(self, addr, balance):
+        # TODO implement
+        raise NotImplementedError("")
+
+    def set_nonce(self, addr, nonce):
+        # TODO implement
+        raise NotImplementedError("")
+
     def apply_txns(self, txn_list):
         """
         :param block:

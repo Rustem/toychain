@@ -1,6 +1,6 @@
 {
   "network_id": 1,
-  "miners": [],
+  "miners": ["968414a7573534a414f4f704b51366f536751764", "968414c6a686a74316a615a4d364f4f317164624"],
   "block_mining": {
     "interval": 600, // mine block each 10 minutes
     "max_bound": 100,  // hundred transactions per block is max
@@ -15,5 +15,13 @@
     "coinbase": "", // coinbase address
     "coinbase_reward": 100,
     "difficulty": 4
+  },
+  "alloc": {
+    "968414d67505a526b6b34614d354d34546734584": {
+      "balance": 10000000
+    },
+    "968414c6a686a74316a615a4d364f4f317164624": {
+      "balance": 100
+    }
   }
 }

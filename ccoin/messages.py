@@ -236,7 +236,7 @@ class Block(BaseMessage):
         return self.hash_txns
 
     def get_hash(self):
-        concat_str = str(self.number) + self.hash_parent + self.hash_txns + str(self.time)
+        concat_str = str(self.number) + self.hash_parent + self.hash_state + self.hash_txns + str(self.time)
         if self.data:
             concat_str += self.data
         concat_bytes = concat_str.encode()
@@ -322,6 +322,12 @@ class GenesisBlock(Block):
                             body=None,
                             data=json_data,
                             nonce=1,)
+        if "difficulty" in data["genesis_block"]:
+            genesis_block.difficulty = data["genesis_block"]["difficulty"]
+        if "coinbase" in data["genesis_block"]:
+            #TODO create coinbase transaction
+            genesis_block.transactions = []
+
         return genesis_block
 
     def __init__(self, *args, **kwargs):
