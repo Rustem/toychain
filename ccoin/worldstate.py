@@ -1,6 +1,7 @@
 import plyvel
 import json
-from ccoin.exceptions import TransactionBadNonce, TransactionSenderIsOutOfCoins
+from ccoin.accounts import Account
+from ccoin.exceptions import TransactionBadNonce, TransactionSenderIsOutOfCoins, SenderStateDoesNotExist
 from ccoin.messages import Transaction
 from ccoin.security import hash_message
 from ccoin.utils import ensure_dir
@@ -83,19 +84,63 @@ class WorldState(object):
         return WorldState(db, block_height, state_hash)
 
     def __init__(self, db, block_height, state_hash=None):
+        """
+        :param db:
+        :type db: plyvel.DB
+        :param block_height:
+        :param state_hash:
+        """
         self.db = db
         self.height = block_height
         self.state_hash = state_hash
 
     @staticmethod
+    def key_prefix(block_number):
+        return ("worldstate.blk-%s" % block_number).encode()
+
+    @staticmethod
     def to_key(block_number, account_addr):
-        return "worldstate.blk-%s:account-%s".format(block_number, account_addr).encode()
+        return ("worldstate.blk-%s:account-%s" % (block_number, account_addr)).encode()
 
     def new_block(self, block_height):
+        """
+        Creates new block head with the state of previous block head.
+        :param block_height:
+        :return:
+        """
         prev_block_height = self.height
         self.move_cursor(block_height)
-        # TODO copy previous state
+        self.copy_state(prev_block_height)
         return prev_block_height
+
+    def rollback_block(self, move_to_block_height):
+        """
+        Removes state with associated invalid block and activates `move_to_block_height`.
+        :param move_to_block_height:
+        :return: cleared (invalid) block number
+        """
+        invalid_block_height = self.height
+        self.move_cursor(move_to_block_height)
+        self.clear_block(invalid_block_height)
+        return invalid_block_height
+
+    def clear_block(self, block_height):
+        """
+        Removes all state associated with invalid block
+        :param block_height:
+        :return:
+        """
+        range_key = self.key_prefix(block_height)
+        with self.db.iterator(prefix=range_key, include_value=False) as it, self.db.write_batch(transaction=True) as wb:
+            for k in it:
+                wb.delete(k)
+
+    def copy_state(self, block_height):
+        """Copies state from `block_height` to active `block_height` in write-batch transaction mode."""
+        range_key = self.key_prefix(block_height)
+        with self.db.iterator(prefix=range_key) as it, self.db.write_batch(transaction=True) as wb:
+            for k, v in it:
+                wb.put(k, v)
 
     def move_cursor(self, new_height):
         self.height = new_height
@@ -116,7 +161,8 @@ class WorldState(object):
             return AccountState(account_addr)
 
     def update_account_state(self, account_state):
-        self.db[account_state.address] = account_state.serialize()
+        account_key = self.to_key(self.height, account_state.address)
+        self.db.put(account_key, account_state.serialize())
 
     def set_state_hash(self, state_hash):
         self.state_hash = state_hash
@@ -131,16 +177,22 @@ class WorldState(object):
         concat_bytes = b"|".join(concat)
         return hash_message(concat_bytes)
 
-    def make_txn(self, command=None, to=None, amount=None):
+    def make_txn(self, from_, to, command=None, amount=None):
         """
         :param command: command details
         :type command: str
-        :param to: recipient address
+        :param from_: sender public key
+        :type from_: str
+        :param to: recipient public key
         :param amount: amount of money to send to
-        :return: transaction id
-        :rtype: str
+        :return: transaction reference
+        :rtype: Transaction
         """
-        txn = Transaction(self.account.nonce, self.account.public_key, to=to, amount=amount, data=command)
+        sender = Account(from_)
+        sender_state = self.account_state(sender.address)
+        if sender_state is None:
+            raise SenderStateDoesNotExist(from_)
+        txn = Transaction(sender_state.nonce, from_, to=to, amount=amount, data=command)
         return txn
 
     def apply_txns(self, txn_list):
@@ -165,7 +217,7 @@ class WorldState(object):
         transaction.verify()
         # Check nonce matches the sender's account
         sender_state = self.account_state(transaction.sender)
-        recipient_state = self.account_state(transaction.recipient)
+        recipient_state = self.account_state(transaction.recipient, create=True)
         if not sender_state or not (sender_state.nonce == transaction.number):
             raise TransactionBadNonce(transaction)
         # Check is enough balance to spend

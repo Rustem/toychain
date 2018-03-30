@@ -12,7 +12,7 @@ from twisted.plugins.base import Configurable
 class Options(usage.Options):
 
     optParameters = [
-        ['nodeid', 'n', '1', 'Node identifier'],
+        ['port', 'p', 0, 'Port number'],
         ['config', 'c', 'ccoin.json', 'Application config file']
     ]
 
@@ -74,10 +74,11 @@ class BlockchainNodeServiceMaker(Configurable):
         """
         self.configure(options)
         top_service = service.MultiService()
-        chain_node_factory = ChainNode.withAccount()
-        # p2p server
+        chain_node_factory = ChainNode.full()
+        # p2p server listens by default on automatically selected port
+        # use --port={port_number} to set certain port
         p2p_service = StreamServerEndpointService(
-            TCP4ServerEndpoint(reactor, 0), #8000, interface="127.0.0.1"), #0),
+            TCP4ServerEndpoint(reactor, int(options["port"])),
             chain_node_factory,
             listen_precondition_checks=[(chain_node_factory.load_account, True)],
             got_listen=[chain_node_factory.p2p_listen_ok]

@@ -116,3 +116,12 @@ class TransactionSenderIsOutOfCoins(TransactionApplyException):
 
     def __str__(self):
         return "Transaction error: sender has less than %s coins on his balance" % self.txn.number
+
+
+class SenderStateDoesNotExist(BaseException):
+
+    def __init__(self, sender_address):
+        self.sender_address = sender_address
+
+    def __str__(self):
+        return "Sender=%s state is not committed in database." % self.sender_address

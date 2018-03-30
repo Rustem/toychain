@@ -62,7 +62,6 @@ class Blockchain(object):
         self.genesis_block = genesis_block
         self.height = height
         self.latest_10 = latest_10 or deque([self.genesis_block], maxlen=10)
-        # TODO add transaction pool
 
     @property
     def head(self):
@@ -71,9 +70,6 @@ class Blockchain(object):
         :rtype: Block
         """
         return self.latest_10[0]
-
-    def mine_block(self, block):
-        raise NotImplementedError("")
 
     def apply_blocks(self, blocks, worldstate):
         """
@@ -110,37 +106,44 @@ class Blockchain(object):
         if not block.verify():
             raise BlockPoWFailed(block)
         # 5. Let S[0] be the state at the end of the previous block.
-        # 6. Let TX be the block's transaction list, with n transactions. For all i in 0...n-1, set S[i+1] = APPLY(S[i],TX[i]). If any applications returns an error, or if the total gas consumed in the block up until this point exceeds the GASLIMIT, return an error.
-        # 7. Let S_FINAL be S[n], but adding the block reward paid to the miner.
-        prev_block_height = worldstate.new_block(block.number)
+        prev_block_height = self.new_block(worldstate, block.number)
         try:
+            # 6. Let TX be the block's transaction list, with n transactions. For all i in 0...n-1, set S[i+1] = APPLY(S[i],TX[i]). If any applications returns an error, or if the total gas consumed in the block up until this point exceeds the GASLIMIT, return an error.
             worldstate.apply_txns(worldstate)
         except TransactionApplyException:
             log.err()
-            self.rollback_block(block.number, prev_block_height)
+            self.rollback_block(worldstate, block.number, prev_block_height)
             raise BlockApplyException(block)
         else:
+            # 7. Let S_FINAL be S[n], but adding the block reward paid to the miner.
             new_state_root = worldstate.calculate_hash()
             # 8. Check if the Merkle tree root of the state S_FINAL is equal to the final state root provided in the block header.
             # If it is, the block is valid; otherwise, it is not valid.
-            if new_state_root != block.state_root:
-                self.rollback_block(block.number, prev_block_height)
+            if new_state_root != block.hash_state:
+                self.rollback_block(worldstate, block.number, prev_block_height)
                 raise BlockApplyException(block)
             worldstate.set_hash_state(new_state_root)
 
 
-    def rollback_block(self, current_block_height, prev_block_height):
-        # TODO remove state of current block
-        # TODO move cursor to previous block
-        raise NotImplementedError("")
+    def rollback_block(self, worldstate, current_block_height, prev_block_height):
+        return worldstate.rollback_block(prev_block_height)
 
-    def new_block(self, nonce, transactions):
+    def new_block(self, worldstate, block_number):
         """
-        Builds new block with set of transactions
-        :param nonce:
-        :param transactions:
+        :param worldstate:
+        :type worldstate: Worldstate
+        :param block_number:
         :return:
         """
+        return worldstate.new_block(block_number)
+
+    def mine_block(self, transaction_pool):
+        """
+        Builds new block from transaction pool
+        :param nonce:
+        :param transaction_pool:
+        :return: tuple of <nonce, pow_hash>
+        """
         prev_hash = self.head.hash_parent
-        # TODO implement new block
+        # TODO implement block mining
         raise NotImplementedError("Not implemented")

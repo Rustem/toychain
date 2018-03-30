@@ -180,6 +180,7 @@ class Block(BaseMessage):
             number (int): block’s height in the chain
             id (str): hash of the block
             hash_parent (str): hash of previous block
+            hash_state (str): hash of world state
             hash_txns (str): hash of transactions included in the block
             body (TransactionList): list of all transactions being included in the block
             data (varies): extra data e.g. genesis block that contains miners addresses
@@ -192,10 +193,11 @@ class Block(BaseMessage):
     DEFAULT_REWARD = 100
     DEFAULT_DIFFICULTY = 4  # four zeroes
 
-    def __init__(self, number, hash_parent, body, id=None, hash_txns=None,
+    def __init__(self, number, hash_parent, body, hash_state=None, id=None, hash_txns=None,
                  data=None, nonce=0, time=None, reward=DEFAULT_REWARD, difficulty=DEFAULT_DIFFICULTY):
         self.number = number
         self.id = id
+        self.hash_state = hash_state
         self.hash_parent = hash_parent
         self.hash_txns = hash_txns
         self.body = TransactionList(body)
@@ -223,6 +225,10 @@ class Block(BaseMessage):
     def set_timestamp(self):
         if not self.time:
             self.time = time.time()
+
+    def set_hash_state(self, hash_state):
+        if not self.hash_state:
+            self.hash_state = hash_state
 
     def get_transactions_hash(self):
         if not self.hash_txns:

@@ -1,31 +1,22 @@
 from twisted.internet import defer
 from twisted.python import log
+import ccoin.settings as ns
 from ccoin.accounts import Account
 from ccoin.app_conf import AppConfig
 from ccoin.blockchain import Blockchain
-from ccoin.exceptions import AccountDoesNotExist, TransactionApplyException
+from ccoin.exceptions import AccountDoesNotExist, TransactionApplyException, BlockApplyException
 from ccoin.p2p_network import BasePeer
-import ccoin.settings as ns
-
-# ~/.ccoin/blockchain
-# ~/.ccoin/.keys/
-# ~/.ccoin/config.json
-
-# TODO 2. Node can connect to P2P Network with already loaded account (done)
-# TODO 3. P2P listen Port select automatically (done)
-# TODO 4. Node can send transactions signed by account's private key
 from ccoin.worldstate import WorldState
 
 
 class ChainNode(BasePeer):
 
-    @defer.inlineCallbacks
     @classmethod
-    def load(cls):
+    def full(cls):
         new_node = cls.withAccount()
         new_node.load_chain()
         new_node.load_state()
-        defer.returnValue(new_node)
+        return new_node
 
     @classmethod
     def withAccount(cls):
@@ -67,37 +58,42 @@ class ChainNode(BasePeer):
         self.state = WorldState.load(AppConfig["state_path"], self.account.address)
 
     def receive_transaction(self, transaction):
-        # TODO catch exception and log it
         try:
             transaction.verify()
         except TransactionApplyException:
-            log.msg("Incoming Transaction with id=%s failed to verify." % transaction.id)
+            log.msg("Transaction with id=%s failed to verify." % transaction.id)
         else:
-            # TODO Add transaction to the pool
-            log.msg("Incoming Transaction with id=%s verified successfully." % transaction.id)
+            log.msg("Transaction with id=%s verified successfully." % transaction.id)
+            log.err()
 
     def receive_block(self, block):
-        # TODO catch exception and log it
-        self.chain.apply_block(block, worldstate=self.state)
+        try:
+            self.chain.apply_block(block, worldstate=self.state)
+        except BlockApplyException as ex:
+            log.msg(str(ex))
+            # TODO move errors to err.log
+            log.err(ex)
 
     def make_transfer_txn(self, sendto_address, amount):
         """
         Creates spendable transaction.
-        :param sendto_address: public key of recepient
+        :param sendto_address: public key of recipient
         :param amount: amount of money sender is wishing to spend
         :return:
         :rtype: ccoin.messages.Transaction
         """
-        return self.make_txn(to=sendto_address, amount=amount)
+        return self.make_txn(self.account.public_key, sendto_address, amount=amount)
 
-    def make_txn(self, command=None, to=None, amount=None):
+    def make_txn(self, from_, to, command=None, amount=None):
         """
         :param command: command details
         :type command: str
-        :param to: recipient address
+        :param from_: sender public key
+        :type from_: str
+        :param to: recipient public key
         :param amount: amount of money to send to
-        :return: Transaction reference
-        :rtype: ccoin.messages.Transaction
+        :return: transaction reference
+        :rtype: Transaction
         """
         txn = self.state.make_txn(command=command, to=to, amount=amount)
         return txn
