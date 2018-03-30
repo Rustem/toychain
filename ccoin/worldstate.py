@@ -93,6 +93,7 @@ class WorldState(object):
         self.db = db
         self.height = block_height
         self.state_hash = state_hash
+        self.cache = {}
 
     @staticmethod
     def key_prefix(block_number):
@@ -152,17 +153,16 @@ class WorldState(object):
         :rtype: AccountState
         :raises: KeyError
         """
-        key = self.to_key(self.height, account_addr)
-        try:
-            return self.db[key]
-        except KeyError:
-            if create is False:
-                return None
-            return AccountState(account_addr)
-
-    def update_account_state(self, account_state):
-        account_key = self.to_key(self.height, account_state.address)
-        self.db.put(account_key, account_state.serialize())
+        if account_addr not in self.cache:
+            key = self.to_key(self.height, account_addr)
+            try:
+                self.cache[account_addr] = AccountState(self.db[key])
+            except KeyError:
+                if create is False:
+                    return None
+                self.cache[account_addr] = AccountState(account_addr)
+            finally:
+                return self.cache.get(account_addr, None)
 
     def set_state_hash(self, state_hash):
         self.state_hash = state_hash
@@ -196,16 +196,31 @@ class WorldState(object):
         return txn
 
     def set_balance(self, addr, balance):
-        # TODO implement
-        raise NotImplementedError("")
+        account_state = self.account_state(addr)
+        account_state.balance = balance
+
+    def incr_balance(self, addr, increment_value):
+        account_state = self.account_state(addr)
+        account_state.balance += increment_value
+
+    def incr_nonce(self, addr, increment_value):
+        account_state = self.account_state(addr)
+        account_state.nonce += increment_value
 
     def set_nonce(self, addr, nonce):
-        # TODO implement
-        raise NotImplementedError("")
+        account_state = self.account_state(addr)
+        account_state.nonce = nonce
 
     def commit(self):
-        # TODO implement
-        raise NotImplementedError("")
+        if not self.cache:
+            # nothing to cache
+            # TODO may be log here
+            return
+        with self.db.write_batch(transaction=True) as wb:
+            for account_addr, account_state in self.cache:
+                account_key = self.to_key(self.height, account_addr)
+                wb.put(account_key, account_state.serialize())
+        self.set_state_hash(self.calculate_hash())
 
     def apply_txns(self, txn_list):
         """
@@ -214,6 +229,7 @@ class WorldState(object):
         :return:
         :raises: TransactionApplyException
         """
+        # TODO wrap in LEVELDB transaction
         for txn in txn_list:
             self.apply_txn(txn)
 
@@ -235,9 +251,8 @@ class WorldState(object):
         # Check is enough balance to spend
         if sender_state.balance - transaction.amount < 0:
            raise TransactionSenderIsOutOfCoins(transaction)
-        sender_state.nonce += 1
+        self.incr_nonce(transaction.sender)
+        self.incr_balance(transaction.sender, -1 * transaction.amount)
+        self.incr_balance(transaction.recipient, -1 * transaction.amount)
         # Debig/Credit
-        sender_state.balance -= transaction.amount
-        recipient_state.balance += transaction.amount
-        self.update_account_state(sender_state)
-        self.update_account_state(recipient_state)
+        self.commit()
