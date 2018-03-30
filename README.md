@@ -60,14 +60,39 @@ python setup.py install
 ```
 
 ## Usage
-All communication with application is handled using microservices (a.k.a twisted plugins). In order to run
+1. All communication with application is handled using microservices (a.k.a twisted plugins). In order to run
 blockchain node, firstly it is necessary to create account with generated keypair:
 
 ```bash
 twistd -n create-account -c ccoin.json
 ```
 
-Then you have to initialize blockchain by generating genesis block
+As a result you should be able to see a created account address message:
+```bash
+2018-03-29T16:55:37+0600 [-] Created account with address=968414e683062785876545154556573356357415
+2018-03-29T16:55:37+0600 [-] Main loop terminated.
+```
+
+
+Then update configuration file ccoin.json to include new account address, under the path `client.account_address`:
+```json
+{
+  "app": {
+    "base_path": "/Users/rustem/.ccoin"
+  },
+  "client": {
+    "account_address": "968414e683062785876545154556573356357415"
+  },
+  "discovery_service": {
+      "host": "127.0.0.1",
+      "port": 8000,
+      "proto": "http"
+  }
+}
+```
+
+2. Next you have to initialize blockchain by generating genesis block from genesis config.
+Genesis config example is provided under genesis.json. Below its example:
 
 ```json
 {
@@ -99,31 +124,16 @@ Then you have to initialize blockchain by generating genesis block
 }
 ```
 
-As a result you should be able to see a created account address message:
+Once you've got satisfied with genesis config, you can execute corresponding twisted service to generate
+genesis block:
+
 ```bash
-2018-03-29T16:55:37+0600 [-] Created account with address=968414e683062785876545154556573356357415
-2018-03-29T16:55:37+0600 [-] Main loop terminated.
-```
+twistd -n initc --genesis=genesis.json
+>>> Output
+Genesis block has been mined: nonce=4000, pow_hash=0000b900ae7c1b52d09ed50b2b912c0d5bba9434ac10aa6f8b8998288a49d644
+``` 
 
-Then update configuration file ccoin.json to include new account address, under the path `client.account_address`:
-```json
-{
-  "app": {
-    "base_path": "/Users/rustem/.ccoin"
-  },
-  "client": {
-    "account_address": "968414e683062785876545154556573356357415"
-  },
-  "discovery_service": {
-      "host": "127.0.0.1",
-      "port": 8000,
-      "proto": "http"
-  }
-}
-```
-
-
-Finally, you can start blockchain node with by running a special service called `cnode`:
+3. Finally, you can start blockchain nodes with by running a special service called `cnode`:
 
 ```bash
 twistd --pidfile=twistd_1.pid --nodaemon cnode -c ccoin.json
