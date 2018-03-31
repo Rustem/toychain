@@ -286,11 +286,12 @@ class Block(BaseMessage):
     @classmethod
     def from_dict(cls, data):
         return cls(
+            id=data.get("id"),
             number=data["number"],
             hash_parent=data["hash_parent"],
-            body=[Transaction.from_dict(t) for t in data["body"]],
-            id=data.get("id"),
+            hash_state=data["hash_state"],
             hash_txns=data.get("hash_txns"),
+            body=[Transaction.from_dict(t) for t in data["body"]],
             data=data.get("data"),
             nonce=data.get("nonce", 0),
             time=data.get("time"),
