@@ -14,12 +14,13 @@ def proof_of_work(difficulty, mining_hash, start_nonce=0, rounds=100000):
     nonce = start_nonce - 1
     isvalid = False
     pow_hash = None
-    attempt = 0
-    while isvalid is False and attempt <= rounds:
+    while isvalid is False and nonce <= rounds:
         concat_str = "%s%s" % (nonce + 1, mining_hash)
         pow_hash = hash_message(concat_str.encode())
         isvalid = is_valid(difficulty, pow_hash)
         nonce += 1
+        if nonce % 10000 == 0:
+            print(nonce, "attempts")
     if isvalid:
         return nonce, pow_hash
     return None, None
@@ -68,7 +69,7 @@ class Miner(object):
         #           block_difficulty=self.block.difficulty)
         #
 
-    def mine(self, rounds=100000, start_nonce=0):
+    def mine(self, rounds=1000000000000, start_nonce=0):
         """
         Mines block with simple pow algorithm based on hashimoto.
         :param rounds: max allowed rounds

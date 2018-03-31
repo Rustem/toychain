@@ -3,8 +3,10 @@ import time
 import json
 
 from ccoin import settings
+from ccoin.accounts import Account
 from ccoin.security import hash_map, sign, verify, hash_message
-from .exceptions import MessageDeserializationException, TransactionNotVerifiable, TransactionBadSignature
+from .exceptions import MessageDeserializationException, TransactionNotVerifiable, TransactionBadSignature, \
+    AccountDoesNotExist
 from abc import ABC, abstractmethod, abstractclassmethod
 
 
@@ -155,8 +157,6 @@ class Transaction(BaseMessage):
                    signature=data.get("signature", None),)
 
 
-
-
 class TransactionList(object):
     """Represents immutable list of transactions.
 
@@ -165,6 +165,10 @@ class TransactionList(object):
     """
 
     def __init__(self, txns):
+        """
+        :param txns: transaction list
+        :type txns: list[Transaction]
+        """
         self.txns = txns
 
     def calc_hash(self):
@@ -173,6 +177,12 @@ class TransactionList(object):
 
     def __iter__(self):
         return self.txns
+
+    def to_dict(self):
+        rv = []
+        for txn in self.txns:
+            rv.append(txn.to_dict())
+        return rv
 
     @property
     def coinbase(self):
@@ -237,6 +247,9 @@ class Block(BaseMessage):
         if not self.hash_state:
             self.hash_state = hash_state
 
+    def set_transactions(self, txns):
+        self.body = TransactionList(txns)
+
     def get_transactions_hash(self):
         if not self.hash_txns:
             self.hash_txns = self.body.calc_hash()
@@ -257,7 +270,9 @@ class Block(BaseMessage):
         data = {
             "number": self.number,
             "hash_parent": self.hash_parent,
+            "hash_state": self.hash_state,
             "hash_txns": self.hash_txns,
+            "body": self.body.to_dict(),
             "data": self.data,
             "reward": self.reward,
             "difficulty": self.difficulty
@@ -273,7 +288,7 @@ class Block(BaseMessage):
         return cls(
             number=data["number"],
             hash_parent=data["hash_parent"],
-            body=data["body"],
+            body=[Transaction.from_dict(t) for t in data["body"]],
             id=data.get("id"),
             hash_txns=data.get("hash_txns"),
             data=data.get("data"),
@@ -329,8 +344,16 @@ class GenesisBlock(Block):
             genesis_block.difficulty = data["genesis_block"]["difficulty"]
         if "coinbase" in data["genesis_block"]:
             genesis_data = data["genesis_block"]
+            # load coinbase account to get his private key
+            coinbase_account = Account.fromAddress(genesis_data["coinbase"])
+            if coinbase_account is None:
+                raise AccountDoesNotExist(genesis_data["coinbase"])
+            private_key = coinbase_account.load_private_key()
+            # Generate coinbase transaction and sign it with coinbase account's private key
             coinbase_txn = Transaction.coinbase(1, genesis_data["coinbase"], genesis_data["coinbase_reward"])
-            genesis_block.body = TransactionList([coinbase_txn])
+            coinbase_txn.generate_id()
+            coinbase_txn.sign(private_key)
+            genesis_block.set_transactions([coinbase_txn])
             genesis_block.get_transactions_hash()
         genesis_block.set_timestamp()
         return genesis_block

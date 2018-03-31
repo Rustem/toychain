@@ -18,7 +18,7 @@ def generate_private_key(public_exponent, key_size, backend):
     with patch("cryptography.hazmat.primitives.asymmetric.rsa._verify_rsa_parameters", return_value=None):
         return backend.generate_rsa_private_key(public_exponent=public_exponent, key_size=key_size)
 
-def generate_key_pair(key_size=256):
+def generate_key_pair(key_size=1024):
     """Generates private/public RSA key pair and returns them hex-encoded"""
     private_key = generate_private_key(public_exponent=17, key_size=key_size, backend=default_backend())
 
@@ -52,7 +52,7 @@ def load_private_key(private_hex):
 
 def sign(private_hex, message_bytes):
     """Sign message_bytes with RSA cryptography tools"""
-    digest = hash_message(message_bytes)
+    digest = hash_message(message_bytes, hex=False)
     private_bytes = binascii.unhexlify(private_hex)
     private_key = serialization.load_pem_private_key(
         private_bytes, password=None, backend=default_backend())
@@ -68,7 +68,7 @@ def verify(base64_signature, message_bytes, public_hex):
     public_bytes = binascii.unhexlify(public_hex)
     public_key = serialization.load_pem_public_key(public_bytes.encode(), backend=default_backend())
     signature = base64.b64decode(base64_signature.encode('ascii'))
-    digest = hash_message(message_bytes)
+    digest = hash_message(message_bytes, hex=False)
     pad = padding.PSS(
         mgf=padding.MGF1(hashes.SHA256()),
         salt_length=padding.PSS.MAX_LENGTH)
@@ -80,13 +80,15 @@ def verify(base64_signature, message_bytes, public_hex):
         return True
 
 
-def hash_message(message_bytes):
+def hash_message(message_bytes, hex=True):
     if not message_bytes:
         return settings.BLANK_SHA_256
     hash_backend = hashes.SHA256()
     hasher = hashes.Hash(hash_backend, default_backend())
     hasher.update(message_bytes)
     digest = hasher.finalize()
+    if not hex:
+        return digest
     return binascii.hexlify(digest).decode()
 
 

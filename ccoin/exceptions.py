@@ -11,7 +11,7 @@ class NodeCannotBeStartedException(Exception):
 class AccountDoesNotExist(NodeCannotBeStartedException):
 
     def __str__(self):
-        return "Node cannot be started: Account does not exists for the user with id=%s." % self.node_id
+        return "Account does not exists for the user with id=%s." % self.node_id
 
 
 class GenesisBlockIsRequired(NodeCannotBeStartedException):

@@ -65,7 +65,7 @@ class Blockchain(object):
     def to_key(key):
         if key in Blockchain.SPECIAL_KEYS:
             return key
-        return "blk-%s".format(key).encode()
+        return ("blk-%s" % key).encode()
 
     def __init__(self, db, genesis_block, height, head):
         """

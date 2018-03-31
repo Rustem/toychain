@@ -19,6 +19,17 @@ class Account(object):
         except FileNotFoundError:
             return
 
+    @classmethod
+    def fromAddress(cls, address):
+        with AppConfig.patch("account_address", address) as conf:
+            key_path = cls.public_key_path()
+            try:
+                with open(key_path, "r") as fh:
+                    public_key_hex = fh.read()
+                    return cls(public_key_hex)
+            except FileNotFoundError:
+                return
+
     def __init__(self, public_key):
         self.public_key = public_key
         self.address = self.public_key[115:155]

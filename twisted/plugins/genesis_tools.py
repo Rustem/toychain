@@ -30,7 +30,6 @@ class GenesisBlockServiceMaker(Configurable):
             log.err()
             return
         else:
-            print(genesis_config)
             return ExecuteAndForgetService(make_genesis_block, genesis_config)
 
 
