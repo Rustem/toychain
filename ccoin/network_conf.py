@@ -19,7 +19,6 @@ NetworkConf = LazyDict({
     "max_peers": 0,
         "genesis_block": {
         "coinbase": "", # coinbase address
-        "coinbase_reward": 100,
         "difficulty": 4
     }
 })

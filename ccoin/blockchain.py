@@ -121,26 +121,52 @@ class Blockchain(object):
         if block.get_transactions_hash() != block.hash_txns:
             raise BlockWrongTransactionHash(block)
         # 5. Check that the proof of work on the block is valid.
-        if not verify_pow(block):
+        if not verify_pow(block.difficulty, block.mining_hash, block.nonce, block.id):
             raise BlockPoWFailed(block)
         # 5. Let S[0] be the state at the end of the previous block.
         prev_block_height = self.new_block(worldstate, block)
         try:
             # 6. Let TX be the block's transaction list, with n transactions. For all i in 0...n-1, set S[i+1] = APPLY(S[i],TX[i]). If any applications returns an error, or if the total gas consumed in the block up until this point exceeds the GASLIMIT, return an error.
-            worldstate.apply_txns(worldstate)
+            worldstate.apply_txns(block.body)
         except TransactionApplyException:
             log.err()
             self.rollback_block(worldstate, block.number, prev_block_height)
             raise BlockApplyException(block)
         else:
             # 7. Let S_FINAL be S[n], but adding the block reward paid to the miner.
+            worldstate.incr_balance(block.coinbase, self.genesis_block.miner_reward)
             new_state_root = worldstate.calculate_hash()
             # 8. Check if the Merkle tree root of the state S_FINAL is equal to the final state root provided in the block header.
             # If it is, the block is valid; otherwise, it is not valid.
             if new_state_root != block.hash_state:
                 self.rollback_block(worldstate, block.number, prev_block_height)
                 raise BlockApplyException(block)
-            worldstate.set_hash_state(new_state_root)
+            block.set_hash_state(new_state_root)
+
+    def apply_genesis_block(self, worldstate):
+        blk = self.genesis_block
+        if blk is None or blk.number != 1:
+            raise BlockApplyException(self.genesis_block)
+        # 4. Check that transaction root is valid
+        if blk.get_transactions_hash() != blk.hash_txns:
+            raise BlockWrongTransactionHash(blk)
+        # 5. Check that the proof of work on the block is valid.
+        if not verify_pow(blk.difficulty, blk.mining_hash, blk.nonce, blk.id):
+            raise BlockPoWFailed(blk)
+        try:
+            # 6. Let TX be the block's transaction list, with n transactions. For all i in 0...n-1, set S[i+1] = APPLY(S[i],TX[i]). If any applications returns an error, or if the total gas consumed in the block up until this point exceeds the GASLIMIT, return an error.
+            worldstate.apply_txns(blk.body)
+        except TransactionApplyException:
+            log.err()
+            raise BlockApplyException(blk)
+        else:
+            # 7. Let S_FINAL be S[n], but adding the block reward paid to the miner.
+            new_state_root = worldstate.calculate_hash()
+            # 8. Check if the Merkle tree root of the state S_FINAL is equal to the final state root provided in the block header.
+            # If it is, the block is valid; otherwise, it is not valid.
+            if new_state_root != blk.hash_state:
+                raise BlockApplyException(blk)
+            blk.set_hash_state(new_state_root)
 
     def rollback_block(self, worldstate, current_block_height, prev_block_height):
         """

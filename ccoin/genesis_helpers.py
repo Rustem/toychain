@@ -50,10 +50,14 @@ def mine_genesis_block(block):
 
 
 def make_genesis_block(genesis_config):
+    # Create genesis block
     block = block_from_genesis_declaration(genesis_config)
+    # Create genesis state
     state = state_from_genesis_declaration(genesis_config, block=block)
+    # Mine genesis block
     block = mine_genesis_block(block)
     blockchain = Blockchain.create_new(AppConfig["storage_path"], AppConfig["chain_db"], block)
-    blockchain.apply_block()
+    # Apply genesis block
+    blockchain.apply_genesis_block(state)
     return block
 

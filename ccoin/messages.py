@@ -3,10 +3,8 @@ import time
 import json
 
 from ccoin import settings
-from ccoin.accounts import Account
 from ccoin.security import hash_map, sign, verify, hash_message
-from .exceptions import MessageDeserializationException, TransactionNotVerifiable, TransactionBadSignature, \
-    AccountDoesNotExist
+from .exceptions import MessageDeserializationException, TransactionNotVerifiable, TransactionBadSignature
 from abc import ABC, abstractmethod, abstractclassmethod
 
 
@@ -81,10 +79,6 @@ class Transaction(BaseMessage):
     """
     identifier = "TXN"
 
-    @classmethod
-    def coinbase(cls, number, to, reward):
-        return Transaction(number, None, to=to, amount=reward)
-
     def __init__(self, number, from_, to=None, id=None, amount=0, data=None, signature=None):
         self.id = id
         self.number = number
@@ -157,6 +151,17 @@ class Transaction(BaseMessage):
                    signature=data.get("signature", None),)
 
 
+class CoinbaseTransaction(Transaction):
+
+    def __init__(self, number, from_to, id=None, amount=0, data=None, signature=None):
+        super(CoinbaseTransaction, self).__init__(number,
+                                                  from_=from_to,
+                                                  to=from_to,
+                                                  id=id,
+                                                  amount=amount,
+                                                  data=data,
+                                                  signature=signature)
+
 class TransactionList(object):
     """Represents immutable list of transactions.
 
@@ -169,25 +174,22 @@ class TransactionList(object):
         :param txns: transaction list
         :type txns: list[Transaction]
         """
-        self.txns = txns
+        self.txns = txns or []
 
     def calc_hash(self):
+        if not self.txns:
+            return settings.BLANK_SHA_256
         txn_ids = [txn.id for txn in self.txns]
         return hash_message(msgpack.packb(txn_ids))
 
     def __iter__(self):
-        return self.txns
+        return iter(self.txns)
 
     def to_dict(self):
         rv = []
         for txn in self.txns:
             rv.append(txn.to_dict())
         return rv
-
-    @property
-    def coinbase(self):
-        return self.txns[0]
-
 
 class Block(BaseMessage):
     """Represents immutable block data structure.
@@ -209,7 +211,7 @@ class Block(BaseMessage):
     DEFAULT_REWARD = 100
     DEFAULT_DIFFICULTY = 4  # four zeroes
 
-    def __init__(self, number, hash_parent, body, hash_state=None, id=None, hash_txns=None,
+    def __init__(self, number, hash_parent, body, coinbase=None, hash_state=None, id=None, hash_txns=None,
                  data=None, nonce=0, time=None, reward=DEFAULT_REWARD, difficulty=DEFAULT_DIFFICULTY):
         self.number = number
         self.id = id
@@ -217,19 +219,15 @@ class Block(BaseMessage):
         self.hash_parent = hash_parent
         self.hash_txns = hash_txns
         self.body = TransactionList(body)
+        self.coinbase = coinbase   # coinbase address
         self.data = data
         self.nonce = nonce
         self.time = time
         self.reward = reward
         self.difficulty = difficulty
 
-        if self.hash_txns is None and body:
+        if self.hash_txns is None:
             self.get_transactions_hash()
-
-    @property
-    def coinbase_txn(self):
-        """Return coinbase transaction"""
-        return self.body.coinbase
 
     @property
     def is_mined(self):
@@ -343,25 +341,19 @@ class GenesisBlock(Block):
                             nonce=1,)
         if "difficulty" in data["genesis_block"]:
             genesis_block.difficulty = data["genesis_block"]["difficulty"]
-        if "coinbase" in data["genesis_block"]:
-            genesis_data = data["genesis_block"]
-            # load coinbase account to get his private key
-            coinbase_account = Account.fromAddress(genesis_data["coinbase"])
-            if coinbase_account is None:
-                raise AccountDoesNotExist(genesis_data["coinbase"])
-            private_key = coinbase_account.load_private_key()
-            # Generate coinbase transaction and sign it with coinbase account's private key
-            coinbase_txn = Transaction.coinbase(1, genesis_data["coinbase"], genesis_data["coinbase_reward"])
-            coinbase_txn.generate_id()
-            coinbase_txn.sign(private_key)
-            genesis_block.set_transactions([coinbase_txn])
-            genesis_block.get_transactions_hash()
+        if "txns" in data:
+            # TODO apply initial transactions
+            pass
         genesis_block.set_timestamp()
         return genesis_block
 
     def __init__(self, *args, **kwargs):
         super(GenesisBlock, self).__init__(*args, **kwargs)
         self.loaded_data = json.loads(self.data)
+
+    @property
+    def miner_reward(self):
+        return self.loaded_data["block_mining"]["reward"]
 
     def get_miners(self):
         """Returns miners's addresses list."""
