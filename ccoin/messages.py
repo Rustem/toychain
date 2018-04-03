@@ -1,3 +1,5 @@
+import random
+
 import msgpack
 import time
 import json
@@ -63,7 +65,6 @@ class BaseMessage(ABC):
     @staticmethod
     def loads(bytes):
         return msgpack.unpackb(bytes, raw=False)
-
 
 class Transaction(BaseMessage):
     """Encapsulates transaction data structure and behaviour.
@@ -334,7 +335,7 @@ class GenesisBlock(Block):
             "max_peers": config["max_peers"],
             "genesis_block": config["genesis_block"]}
         json_data = json.dumps(data)
-        genesis_block = cls(number=1,
+        genesis_block = cls(number=settings.GENESIS_BLOCK_NUMBER,
                             hash_parent=settings.BLANK_SHA_256,
                             body=None,
                             data=json_data,
@@ -348,7 +349,7 @@ class GenesisBlock(Block):
         return genesis_block
 
     def __init__(self, *args, **kwargs):
-        super(GenesisBlock, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.loaded_data = json.loads(self.data)
 
     @property
@@ -362,3 +363,54 @@ class GenesisBlock(Block):
     def can_mine(self, address):
         """Returns flag whether address is allowed to mine new blocks."""
         return address in self.get_miners()
+
+
+class BaseRequestMessage(BaseMessage):
+
+    def __init__(self, request_id=None):
+        self.request_id = request_id
+
+    def gen_request_id(self):
+        return "%s_%s" % (self.identifier, random.randint(1, 100000) * random.randint(1, 100000))
+
+
+class HelloMessage(BaseRequestMessage):
+
+    identifier = "HEY"
+
+    def __init__(self, address, request_id=None):
+        super().__init__(request_id)
+        self.address = address
+
+    def to_dict(self):
+        return {
+            "request_id": self.request_id,
+            "address": self.address
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        return HelloMessage(data["address"], data["request_id"])
+
+
+class HelloAckMessage(HelloMessage):
+    identifier = "ACK"
+
+
+class RequestBlock(BaseRequestMessage):
+
+    identifier = "RBL"
+
+    def __init__(self, block_number, request_id=None):
+        super().__init__(request_id)
+        self.block_number = block_number
+
+    def to_dict(self):
+        return {
+            "request_id": self.request_id,
+            "block_number": self.block_number
+        }
+
+    @classmethod
+    def from_dict(self, data):
+        return RequestBlock(data["block_number"], data["request_id"])

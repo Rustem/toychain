@@ -1,0 +1,13 @@
+{
+  "app": {
+    "base_path": "/Users/rustem/.ccoin"
+  },
+  "client": {
+    "account_address": "968414c6a686a74316a615a4d364f4f317164624"
+  },
+  "discovery_service": {
+      "host": "127.0.0.1",
+      "port": 8000,
+      "proto": "http"
+  }
+}

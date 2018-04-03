@@ -4,6 +4,7 @@ from twisted.python import log
 
 from ccoin.app_conf import configure_from_file
 
+# TODO  use task.react() instead for one-off operation https://twistedmatrix.com/documents/16.3.1/api/twisted.internet.task.html
 
 class ExecuteAndForgetService(service.Service):
 

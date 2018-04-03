@@ -60,6 +60,12 @@ python setup.py install
 ```
 
 ## Usage
+0. In order to start using application plugins, please add application root directory under PYTHONPATH 
+
+```bash
+export PYTHONPATH="${PYTHONPATH}:./"
+```
+
 1. All communication with application is handled using microservices (a.k.a twisted plugins). In order to run
 blockchain node, firstly it is necessary to create account with generated keypair:
 

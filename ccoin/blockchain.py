@@ -1,7 +1,9 @@
 import plyvel
 import os
 from twisted.python import log
-from ccoin.exceptions import GenesisBlockIsRequired, BlockChainViolated, BlockTimeError, BlockWrongDifficulty, \
+
+from ccoin import settings
+from ccoin.exceptions import BlockChainViolated, BlockTimeError, BlockWrongDifficulty, \
     BlockWrongNumber, BlockWrongTransactionHash, BlockPoWFailed, TransactionApplyException, BlockApplyException, \
     MiningGenesisBlockFailed
 from ccoin.network_conf import NetworkConf
@@ -21,24 +23,21 @@ class Blockchain(object):
         :return: blockchain instance
         :rtype: Blockchain
         """
-        if not os.path.exists(storage_path):
-            # Attention: blockchain is empty (even genesis block is not generated)
-            # Either request it from the network or start your own
-            raise GenesisBlockIsRequired(account_id)
-        db = plyvel.DB(os.path.join(storage_path, db_name), create_if_missing=False)
+        ensure_dir(storage_path)
+        db = plyvel.DB(os.path.join(storage_path, db_name), create_if_missing=True)
         # load genesis block
-        block_bytes = db.get(cls.to_key(0))
+        block_bytes = db.get(cls.to_key(settings.GENESIS_BLOCK_NUMBER))
         if not block_bytes:
+            return Blockchain(db, None, 0, None)
+        genesis_block = None
+        if block_bytes:
             # Attention: blockchain is empty (even genesis block is not generated)
             # Either request it from the network or start your own
-            raise GenesisBlockIsRequired(account_id)
-        genesis_block = Block.deserialize(block_bytes)
+            genesis_block = GenesisBlock.deserialize(block_bytes)
+
         # load height
-        try:
-            height = int(db.get(b"height"))
-        except TypeError:
-            raise GenesisBlockIsRequired(account_id)
-        # load 10 latest block to the memory
+        height = int(db.get(b"height"))
+        # load head
         head_key = cls.to_key(b"height")
         head = db.get(head_key)
         return Blockchain(db, genesis_block, height, head)
@@ -82,6 +81,9 @@ class Blockchain(object):
         self.genesis_block = genesis_block
         self.height = height
         self.head = head
+
+    def initialized(self):
+        return self.genesis_block is not None
 
     def change_head(self, new_height):
         self.height = new_height

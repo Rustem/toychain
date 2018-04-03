@@ -1,12 +1,42 @@
-from twisted.internet import defer
+from twisted.internet import defer, reactor
 from twisted.python import log
 import ccoin.settings as ns
+from ccoin import settings
 from ccoin.accounts import Account
 from ccoin.app_conf import AppConfig
 from ccoin.blockchain import Blockchain
 from ccoin.exceptions import AccountDoesNotExist, TransactionApplyException, BlockApplyException
+from ccoin.messages import RequestBlock
 from ccoin.p2p_network import BasePeer
 from ccoin.worldstate import WorldState
+
+
+class DeferredRequestPool(object):
+
+    def __init__(self):
+        self.dl = {}
+
+    def add(self, request, timeout=settings.DEFAULT_REQUEST_TIMEOUT):
+        d = defer.Deferred()
+        d.addTimeout(timeout, reactor, onTimeoutCancel=self.timedout)
+        self.dl[request.request_id] = (request, d)
+        return request, d
+
+    def get(self, request_id):
+        request, d = self.dl.get(request_id, (None, None))
+        return request, d
+
+    def remove(self, request_id, result=None, failure=None):
+        request, d = self.dl.pop(request_id)
+        if result:
+            d.callback(result)
+        else:
+            d.errback(failure)
+        return request, d
+
+    def timedout(self, request_id, result, timeout):
+        self.remove(request_id=request_id)
+        raise NotImplementedError("")
 
 
 class ChainNode(BasePeer):
@@ -44,6 +74,13 @@ class ChainNode(BasePeer):
         self.fsm_state = fsm_state
         self.state = None  # world state
         self.chain = None
+        self.drp = DeferredRequestPool()
+
+    @property
+    def genesis_block(self):
+        if not self.chain:
+            return
+        return self.chain.genesis_block
 
     def load_account(self):
         self.account = Account.fromConfig()
@@ -52,10 +89,13 @@ class ChainNode(BasePeer):
 
     def load_chain(self):
         self.chain = Blockchain.load(AppConfig["storage_path"], AppConfig["chain_db"], self.account.address)
-        self.allow_mine = self.chain.genesis_block.can_mine(self.account.public_key)
+        if self.chain.initialized():
+            self.allow_mine = self.chain.genesis_block.can_mine(self.account.public_key)
+            log.msg("Blockchain loaded at block=%s" % self.chain.height)
 
     def load_state(self):
-        self.state = WorldState.load(AppConfig["storage_path"], AppConfig["state_db"], self.account.address)
+        self.state = WorldState.load(AppConfig["storage_path"], AppConfig["state_db"], self.chain.height)
+        log.msg("Worldstate loaded at block=%s with state_hash=%s" % (self.state.height, self.state.state_hash))
 
     def receive_transaction(self, transaction):
         try:
@@ -65,6 +105,20 @@ class ChainNode(BasePeer):
         else:
             log.msg("Transaction with id=%s verified successfully." % transaction.id)
             log.err()
+
+    def request_block(self, address, block_number):
+        rbl = RequestBlock(block_number)
+        request_id, d = self.make_request(address, rbl)
+
+    def make_request(self, address, msg, timeout=settings.DEFAULT_REQUEST_TIMEOUT):
+        conn = self.peers_connection.get(address)
+        if not conn:
+            # TODO log
+            return
+        try:
+            conn.sendString(msg.serialize())
+        finally:
+            return self.drp.add(msg, timeout=timeout)
 
     def receive_block(self, block):
         try:

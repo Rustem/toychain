@@ -1,26 +1,25 @@
 import logging
-from abc import abstractmethod
 
 import struct
-
-import msgpack
+from abc import abstractmethod
 from twisted.internet import reactor, defer
-from twisted.internet.endpoints import TCP4ClientEndpoint, TCP4ServerEndpoint, connectProtocol
+from twisted.internet.endpoints import TCP4ClientEndpoint, connectProtocol
 from twisted.internet.protocol import connectionDone, Factory
 from twisted.protocols.basic import IntNStringReceiver
-
-from ccoin.discovery import PeerDiscoveryService
-from ccoin.exceptions import NotSupportedMessage
-from ccoin.messages import Transaction
-from ccoin.peer_info import PeerInfo
 from twisted.python import log
 
+from ccoin.base import DeferredRequestMixin
+from ccoin.discovery import PeerDiscoveryService
+from ccoin.exceptions import NotSupportedMessage
+from ccoin.messages import Transaction, HelloMessage, HelloAckMessage
+from ccoin.peer_info import PeerInfo
 from ccoin.rest_api import run_http_api
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-class SimpleHandshakeProtocol(IntNStringReceiver):
+
+class SimpleHandshakeProtocol(IntNStringReceiver, DeferredRequestMixin):
     """This class encapsulates behaviour of establishing and keeping connection with remote peers.
     Args:
         factory (BasePeer): Twisted Factory used to keep a shared state among multiple connections.
@@ -43,6 +42,7 @@ class SimpleHandshakeProtocol(IntNStringReceiver):
         :param factory:
         :type factory: BasePeer
         """
+        super().__init__(cnt=0)
         self.factory = factory
         self.node_id = str(self.factory.id)
         self.peer_node_id = None
@@ -63,48 +63,58 @@ class SimpleHandshakeProtocol(IntNStringReceiver):
     def stringReceived(self, string):
         """Callback called once a complete message is received"""
         msg_type = string[:3].decode()
+        msg = None
         if msg_type == "HEY":
-            msg = msgpack.unpackb(string[3:], raw=False)
+            msg = HelloMessage.deserialize(string)
             # handle handshake
             self.handle_hi(msg)
         elif msg_type == "ACK":
-            msg = msgpack.unpackb(string[3:], raw=False)
+            msg = HelloAckMessage.deserialize(string)
             # handle handshake acknowledgement
             self.handle_hi_ack(msg)
         else:
             raise NotSupportedMessage(msg_type)
 
-
     def handle_hi(self, msg):
         """Handles incoming handshake message by persisting the details of connected peer and
         sending him acknowledgement."""
-        peer_node_id = msg["node_id"]
+        peer_node_id = msg.address
         logger.debug('Handshake from %s with peer_node_id = %s ', str(self.transport.getPeer()), peer_node_id)
         if peer_node_id not in self.factory.peers_connection:
             self.factory.add_peer(peer_node_id, self)
             self.peer_node_id = peer_node_id
-        self.send_hi_ack()
+        self.send_hi_ack(msg.request_id)
 
     def handle_hi_ack(self, msg):
         """Handles incoming handshake acknowledgement message by persisting the details of acknowledging peer."""
-        peer_node_id = msg["node_id"]
+        peer_node_id = msg.address
         logger.debug('Handshake ACK from %s with peer_node_id = %s ', str(self.transport.getPeer()), peer_node_id)
         if peer_node_id not in self.factory.peers_connection:
             self.factory.add_peer(peer_node_id, self)
             self.peer_node_id = peer_node_id
+        # Trigger deferred callbacks
+        self.receive_response(msg)
+
         # TODO define ping reconnecting loop
 
     def send_hi(self):
-        """Send handshake message so that other node gets to ack this node."""
-        s = msgpack.packb({"node_id": self.node_id})
-        # send utf-8 encoded string to the wire
-        self.sendString(b'HEY' + s)
+        hi_msg = HelloMessage(self.node_id)
+        d = self.send_request(self.peer_node_id, hi_msg)
+        return d
 
-    def send_hi_ack(self):
-        """Send handshake acknowledgement so that other node can ack this node"""
-        s = msgpack.packb({"node_id": self.node_id})
-        # send utf-8 encoded string to the wire
-        self.sendString(b'ACK' + s)
+    def send_hi_ack(self, request_id):
+        """
+        Send handshake acknowledgement so that other node can ack this node
+        :return: deferred object
+        :rtype: defer.Deferred
+        """
+        ack_msg = HelloAckMessage(self.node_id, request_id=request_id)
+        d = self.send_request(self.peer_node_id, ack_msg)
+        return d
+
+    def get_connection(self, addr):
+        assert addr == self.peer_node_id
+        return self
 
 
 class BasePeerConnection(SimpleHandshakeProtocol):
@@ -116,7 +126,7 @@ class BasePeerConnection(SimpleHandshakeProtocol):
             self.factory.message_callback(exc.msg_type, string, self)
 
 
-class BasePeer(Factory):
+class BasePeer(Factory, DeferredRequestMixin):
     """This class defines the logic of representing the peer and its connected peers consistently.
 
     Attributes:
@@ -129,6 +139,7 @@ class BasePeer(Factory):
     """
 
     def __init__(self, uuid):
+        super().__init__(cnt=0)
         self.id = uuid
         self.peers_connection = {}
         self.peers = {}
@@ -145,13 +156,17 @@ class BasePeer(Factory):
         """
         return self.peers[self.id]
 
+    def get_connection(self, addr):
+        return self.peers_connection.get(addr)
+
     def buildProtocol(self, addr):
         return BasePeerConnection(self)
 
     @staticmethod
     def got_protocol(p):
         """The callback to start the protocol handshake. Let connecting nodes start the hello handshake."""
-        p.send_hi()
+        d = p.send_hi()
+        return d
 
     @staticmethod
     def fail_got_protocol(failure, node_id):
@@ -170,7 +185,12 @@ class BasePeer(Factory):
         for peer in self.peers.values():
             if peer.id == self.id:
                 continue # skip
-            self.connect_to_peer(peer)
+            yield self.connect_to_peer(peer)
+        self.on_bootstrap_network_ok()
+
+    def on_bootstrap_network_ok(self):
+        log.msg("Network bootstrap successfully accomplished. Ready for the next tasks")
+        pass
 
     def connect_to_peer(self, peer):
         """
@@ -183,6 +203,11 @@ class BasePeer(Factory):
             d = connectProtocol(point, BasePeerConnection(self))
             d.addCallback(self.got_protocol)
             d.addErrback(self.fail_got_protocol, peer.id)
+            return d
+        else:
+            d = defer.Deferred()
+            d.callback(self.peers_connection.get(peer.id))
+            return d
 
     @defer.inlineCallbacks
     def p2p_listen_ok(self, portObject):
@@ -226,6 +251,10 @@ class BasePeer(Factory):
         msg_bytes = msg_object.serialize()
         for peer_id, peer_conn in self.peers_connection.items():
             peer_conn.sendString(msg_bytes)
+
+    def send(self, peer_address, msg_object, msg_type):
+        if peer_address in self.peers_connection:
+            self.peers_connection[peer_address].sendString(msg_object.serialize())
 
     def respond(self, msg_object, sender):
         """
