@@ -109,4 +109,4 @@ class DeferredRequestMixin(object):
         """Defauler deferred request error handler"""
         failure.trap(defer.TimeoutError)
         log.msg("ERROR: request with request_id=%s failed for the reason=%s" % (request_id, str(failure)))
-        return failure
+        # return failure
