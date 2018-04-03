@@ -6,7 +6,7 @@ from ccoin.accounts import Account
 from ccoin.app_conf import AppConfig
 from ccoin.blockchain import Blockchain
 from ccoin.exceptions import AccountDoesNotExist, TransactionApplyException, BlockApplyException
-from ccoin.messages import RequestBlock
+from ccoin.messages import RequestBlockHeight, ResponseBlockHeight
 from ccoin.p2p_network import BasePeer
 from ccoin.worldstate import WorldState
 
@@ -97,6 +97,21 @@ class ChainNode(BasePeer):
         self.state = WorldState.load(AppConfig["storage_path"], AppConfig["state_db"], self.chain.height)
         log.msg("Worldstate loaded at block=%s with state_hash=%s" % (self.state.height, self.state.state_hash))
 
+    def receive_block_height_request(self, request_block, sender):
+        """
+        :param request_block:
+        :param sender:
+        :type sender:
+        :return:
+        """
+
+        if self.chain.height > request_block.block_number:
+            rebh = ResponseBlockHeight(self.chain.height, request_id=request_block.request_id)
+            sender.sendString(rebh.serialize())
+
+    def receive_block_height_response(self, response_block, sender):
+        self.receive_response(response_block)
+
     def receive_transaction(self, transaction):
         try:
             transaction.verify()
@@ -106,9 +121,22 @@ class ChainNode(BasePeer):
             log.msg("Transaction with id=%s verified successfully." % transaction.id)
             log.err()
 
-    def request_block(self, address, block_number):
-        rbl = RequestBlock(block_number)
-        request_id, d = self.make_request(address, rbl)
+    @defer.inlineCallbacks
+    def on_bootstrap_network_ok(self):
+        log.msg("Network bootstrap successfully accomplished. Ready for the next tasks")
+        if self.fsm_state != ns.BOOT_STATE:
+            return
+        if not self.peers_connection:
+            self.fsm_state = ns.READY_STATE
+            return
+        # # request blocks
+        block_results = yield self.broadcast_request_block()
+        # TODO (block_result = (result, connection)
+        print(block_results)
+
+    def broadcast_request_block(self):
+        rbl = RequestBlockHeight(self.chain.height)
+        return self.broadcast_request(rbl, rbl.identifier)
 
     def make_request(self, address, msg, timeout=settings.DEFAULT_REQUEST_TIMEOUT):
         conn = self.peers_connection.get(address)

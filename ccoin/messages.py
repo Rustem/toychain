@@ -397,7 +397,7 @@ class HelloAckMessage(HelloMessage):
     identifier = "ACK"
 
 
-class RequestBlock(BaseRequestMessage):
+class RequestBlockHeight(BaseRequestMessage):
 
     identifier = "RBL"
 
@@ -413,4 +413,8 @@ class RequestBlock(BaseRequestMessage):
 
     @classmethod
     def from_dict(self, data):
-        return RequestBlock(data["block_number"], data["request_id"])
+        return RequestBlockHeight(data["block_number"], data["request_id"])
+
+
+class ResponseBlockHeight(RequestBlockHeight):
+    identifier = "BLH" # block height

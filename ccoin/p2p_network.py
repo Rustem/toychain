@@ -11,7 +11,7 @@ from twisted.python import log
 from ccoin.base import DeferredRequestMixin
 from ccoin.discovery import PeerDiscoveryService
 from ccoin.exceptions import NotSupportedMessage
-from ccoin.messages import Transaction, HelloMessage, HelloAckMessage
+from ccoin.messages import Transaction, HelloMessage, HelloAckMessage, RequestBlockHeight, ResponseBlockHeight
 from ccoin.peer_info import PeerInfo
 from ccoin.rest_api import run_http_api
 
@@ -63,7 +63,7 @@ class SimpleHandshakeProtocol(IntNStringReceiver, DeferredRequestMixin):
     def stringReceived(self, string):
         """Callback called once a complete message is received"""
         msg_type = string[:3].decode()
-        msg = None
+        log.msg("RECEIVED MSG: %s" % string)
         if msg_type == "HEY":
             msg = HelloMessage.deserialize(string)
             # handle handshake
@@ -112,9 +112,8 @@ class SimpleHandshakeProtocol(IntNStringReceiver, DeferredRequestMixin):
         d = self.send_request(self.peer_node_id, ack_msg)
         return d
 
-    def get_connection(self, addr):
-        assert addr == self.peer_node_id
-        return self
+    def get_connections(self):
+        return {self.peer_node_id: self}
 
 
 class BasePeerConnection(SimpleHandshakeProtocol):
@@ -156,8 +155,8 @@ class BasePeer(Factory, DeferredRequestMixin):
         """
         return self.peers[self.id]
 
-    def get_connection(self, addr):
-        return self.peers_connection.get(addr)
+    def get_connections(self):
+        return self.peers_connection
 
     def buildProtocol(self, addr):
         return BasePeerConnection(self)
@@ -188,8 +187,9 @@ class BasePeer(Factory, DeferredRequestMixin):
             yield self.connect_to_peer(peer)
         self.on_bootstrap_network_ok()
 
+    @abstractmethod
     def on_bootstrap_network_ok(self):
-        log.msg("Network bootstrap successfully accomplished. Ready for the next tasks")
+        """Callback called once network bootstrap is ended."""
         pass
 
     def connect_to_peer(self, peer):
@@ -247,7 +247,6 @@ class BasePeer(Factory, DeferredRequestMixin):
         :param msg_type: 3-chars description of Message instance
         :type msg_type: str
         """
-        logger.debug('broadcast: %s', msg_type)
         msg_bytes = msg_object.serialize()
         for peer_id, peer_conn in self.peers_connection.items():
             peer_conn.sendString(msg_bytes)
@@ -256,20 +255,16 @@ class BasePeer(Factory, DeferredRequestMixin):
         if peer_address in self.peers_connection:
             self.peers_connection[peer_address].sendString(msg_object.serialize())
 
-    def respond(self, msg_object, sender):
-        """
-        Respond with message object to the sender.
-        :param msg_object: Message instance (Transaction, Block, etc.)
-        :type msg_object: Message
-        :param sender: The connection between this node and the sender of the message
-        :type sender: BasePeerConnection
-        """
-        logger.debug("Respond from=%s to=%s", sender.peer_node_id, sender.node_id)
-        msg_bytes = msg_object.serialize()
-        sender.sendString(msg_bytes)
-
     def parse_msg(self, msg_type, msg, sender):
-        if msg_type == "TXN":
+        if msg_type == "RBL":
+            obj = RequestBlockHeight.deserialize(msg)
+            self.receive_block_height_request(obj, sender)
+            return
+        if msg_type == "BLH":
+            obj = ResponseBlockHeight.deserialize(msg)
+            self.receive_block_height_response(obj, sender)
+            return
+        elif msg_type == "TXN":
             obj = Transaction.deserialize(msg)
             self.receive_transaction(obj)
             return
@@ -278,6 +273,27 @@ class BasePeer(Factory, DeferredRequestMixin):
             self.receive_block(obj)
             return
         raise NotImplementedError("Can\'t parse %s: %s" % (msg_type, msg))
+
+    @abstractmethod
+    def receive_block_height_request(self, request_block, sender):
+        """
+        Handles block request with block response
+        :param request_block:
+        :type request_block: RequestBlockHeight
+        :param sender
+        :type sender: BasePeerConnection
+        :return:
+        """
+        pass
+
+    @abstractmethod
+    def receive_block_height_response(self, response_block, sender):
+        """
+        :param response_block:
+        :param sender:
+        :return:
+        """
+        pass
 
     @abstractmethod
     def receive_transaction(self, transaction):

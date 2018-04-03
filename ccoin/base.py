@@ -52,6 +52,13 @@ class DeferredRequestMixin(object):
         self.cnt = cnt
         self.request_registry = {}
 
+    def broadcast_request(self, msg_object, msg_type):
+        conn_map = self.get_connections()
+        if not conn_map:
+            return
+        defer_reqs = [self.send_request(addr, msg_object) for addr in conn_map.keys()]
+        return defer.DeferredList(defer_reqs)
+
     def send_request(self, addr, msg, timeout=settings.DEFAULT_REQUEST_TIMEOUT,
                      response_callback=None, response_errback=None):
         """
@@ -94,11 +101,15 @@ class DeferredRequestMixin(object):
         d.callback(msg)
 
     def get_connection(self, addr):
+        conn_map = self.get_connections()
+        return conn_map.get(addr)
+
+    def get_connections(self):
         """
-        :param addr:
-        :type addr: SimpleHandshakeProtocol
-        :return:
+        :return: connection map
+        :rtype: dict(str, BasePeer)
         """
+
         raise NotImplementedError("Implement me")
 
     def on_request_success(self, msg):
