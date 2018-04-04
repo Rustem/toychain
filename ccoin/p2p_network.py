@@ -12,7 +12,7 @@ from ccoin.base import DeferredRequestMixin
 from ccoin.discovery import PeerDiscoveryService
 from ccoin.exceptions import NotSupportedMessage
 from ccoin.messages import Transaction, HelloMessage, HelloAckMessage, RequestBlockHeight, ResponseBlockHeight, \
-    RequestBlocks
+    RequestBlockList, ResponseBlockList
 from ccoin.peer_info import PeerInfo
 from ccoin.rest_api import run_http_api
 
@@ -100,7 +100,7 @@ class SimpleHandshakeProtocol(IntNStringReceiver, DeferredRequestMixin):
 
     def send_hi(self):
         hi_msg = HelloMessage(self.node_id)
-        d = self.send_request(self.peer_node_id, hi_msg)
+        d = self.send_request(self.peer_node_id, hi_msg, raise_on_timeout=True)
         return d
 
     def send_hi_ack(self, request_id):
@@ -270,13 +270,19 @@ class BasePeer(Factory, DeferredRequestMixin):
             self.receive_transaction(obj)
             return
         elif msg_type == "RBL":
-            obj = RequestBlocks.deserialize(msg)
+            obj = RequestBlockList.deserialize(msg)
             self.receive_request_blocks(obj, sender)
+            return
+        elif msg_type == "ABL":
+            obj = ResponseBlockList.deserialize(msg)
+            self.receive_response_blocks(obj, sender)
+            return
         elif msg_type == "BLK":
             obj = None #Block.deserialize(msg)
             self.receive_block(obj)
             return
-        raise NotImplementedError("Can\'t parse %s: %s" % (msg_type, msg))
+        else:
+            raise NotImplementedError("Can\'t parse %s: %s" % (msg_type, msg))
 
     @abstractmethod
     def receive_block_height_request(self, request_block_height, sender):
@@ -286,6 +292,15 @@ class BasePeer(Factory, DeferredRequestMixin):
         :type request_block_height: RequestBlockHeight
         :param sender
         :type sender: BasePeerConnection
+        :return:
+        """
+        pass
+
+    @abstractmethod
+    def receive_block_height_response(self, response_block_height, sender):
+        """
+        :param response_block_height:
+        :param sender:
         :return:
         """
         pass
@@ -301,9 +316,10 @@ class BasePeer(Factory, DeferredRequestMixin):
         pass
 
     @abstractmethod
-    def receive_block_height_response(self, response_block_height, sender):
+    def receive_response_blocks(self, response_blocks, sender):
         """
-        :param response_block_height:
+        Handles download blocks response.
+        :param response_blocks:
         :param sender:
         :return:
         """

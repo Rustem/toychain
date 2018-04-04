@@ -52,21 +52,28 @@ class DeferredRequestMixin(object):
         self.cnt = cnt
         self.request_registry = {}
 
-    def broadcast_request(self, msg_object, msg_type):
+    def broadcast_request(self, msg_object, raise_on_timeout=False):
         conn_map = self.get_connections()
         if not conn_map:
             return
-        defer_reqs = [self.send_request(addr, msg_object) for addr in conn_map.keys()]
+        defer_reqs = [self.send_request(addr,
+                                        msg_object,
+                                        raise_on_timeout=raise_on_timeout)
+                      for addr in conn_map.keys()]
         return defer.DeferredList(defer_reqs)
 
-    def send_request(self, addr, msg, timeout=settings.DEFAULT_REQUEST_TIMEOUT,
+    def send_request(self, addr, msg, timeout=settings.DEFAULT_REQUEST_TIMEOUT, raise_on_timeout=False,
                      response_callback=None, response_errback=None):
         """
+        Sends message request to addr peer over tcp transport.
         :param addr:
         :param msg:
         :type msg: ccoin.messages.BaseMessage
-        :return: deferred request
-        :rtype: defer.Deferred
+        :param timeout:
+        :param forget:
+        :param response_callback:
+        :param response_errback:
+        :return:
         """
         # Build request
         req_id = self.cnt
@@ -79,7 +86,7 @@ class DeferredRequestMixin(object):
 
         if response_errback is None:
             response_errback = self.on_request_failure
-        d.addErrback(response_errback, request_id=req_id)
+        d.addErrback(response_errback, raise_on_timeout=raise_on_timeout, request_id=req_id)
 
         # Send request over the wire
         connection = self.get_connection(addr)
@@ -116,10 +123,12 @@ class DeferredRequestMixin(object):
         log.msg("INFO: request with request_id=%s received response successfully" % msg.request_id)
         return msg
 
-    def on_request_failure(self, failure, request_id):
+    def on_request_failure(self, failure, raise_on_timeout=False, request_id=settings.GENESIS_BLOCK_NUMBER):
         """Defauler deferred request error handler"""
         # TODO use requests only for when it necessary
         # TODO use normal messages otherwise
-        failure.trap(defer.TimeoutError)
-        log.err(failure)
-        # return failure
+        if not raise_on_timeout:
+            failure.trap(defer.TimeoutError)
+            log.err(failure)
+            return
+        return failure

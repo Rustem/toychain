@@ -25,12 +25,7 @@ def state_from_genesis_declaration(genesis_config, block=None):
     else:
         block = block_from_genesis_declaration(genesis_config)
     state = WorldState.load(AppConfig["storage_path"], AppConfig["state_db"], block.nonce)
-    for addr, data in genesis_config["alloc"].items():
-        if 'balance' in data:
-            state.set_balance(addr, data["balance"])
-        if 'nonce' in data:
-            state.set_nonce(addr, data["nonce"])
-    state.commit()
+    state.from_genesis_block(block)
     block.hash_state = state.calculate_hash()
     return state
 
@@ -56,8 +51,7 @@ def make_genesis_block(genesis_config):
     state = state_from_genesis_declaration(genesis_config, block=block)
     # Mine genesis block
     block = mine_genesis_block(block)
-    blockchain = Blockchain.create_new(AppConfig["storage_path"], AppConfig["chain_db"], block)
-    # Apply genesis block
-    blockchain.apply_genesis_block(state)
+    # create blockchain store with genesis block
+    Blockchain.create_new(AppConfig["storage_path"], AppConfig["chain_db"], block)
     return block
 

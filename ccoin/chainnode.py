@@ -6,7 +6,7 @@ from ccoin.accounts import Account
 from ccoin.app_conf import AppConfig
 from ccoin.blockchain import Blockchain
 from ccoin.exceptions import AccountDoesNotExist, TransactionApplyException, BlockApplyException
-from ccoin.messages import RequestBlockHeight, ResponseBlockHeight, RequestBlocks
+from ccoin.messages import RequestBlockHeight, ResponseBlockHeight, RequestBlockList, ResponseBlockList
 from ccoin.p2p_network import BasePeer
 from ccoin.worldstate import WorldState
 
@@ -111,8 +111,56 @@ class ChainNode(BasePeer):
                                        request_id=request_block.request_id)
             sender.sendString(rebh.serialize())
 
+    def broadcast_request_block_height(self):
+        rbh = RequestBlockHeight(self.chain.height, self.id)
+        return self.broadcast_request(rbh, raise_on_timeout=True)
+
+    def request_blocks(self, addr, start_from=settings.GENESIS_BLOCK_NUMBER):
+        rbl = RequestBlockList(start_from, addr)
+        return self.send_request(addr, rbl, raise_on_timeout=True)
+
     def receive_block_height_response(self, response_block, sender):
         self.receive_response(response_block)
+
+    def receive_request_blocks(self, request_blocks, sender):
+        """
+        :param request_blocks:
+        :type request_blocks: RequestBlockList
+        :param sender:
+        :return:
+        """
+        if request_blocks.start_from_block > self.chain.height:
+            # No blocks to provide
+            msg = ResponseBlockList([], self.id, request_id=request_blocks.request_id)
+            sender.sendString(msg.serialize())
+        else:
+            blocks = []
+            for blk_number in range(request_blocks.start_from_block, self.chain.height + 1):
+                blk = self.chain.get_block(blk_number)
+                if blk is None:
+                    break
+                blocks.append(blk)
+            msg = ResponseBlockList(blocks, self.id, request_id=request_blocks.request_id)
+            sender.sendString(msg.serialize())
+
+    def receive_response_blocks(self, response_blocks, sender):
+        """
+        :param response_blocks:
+        :type response_blocks: ResponseBlockList
+        :param sender:
+        :return:
+        """
+        log.msg("Downloaded %s blocks." % len(response_blocks.blocks))
+        log.msg("Applying blocks")
+        for blk in response_blocks.blocks:
+            try:
+                self.receive_block(blk)
+            except BlockApplyException as ex:
+                log.msg(str(ex))
+                log.err(ex)
+                break
+            else:
+                log.msg("Applied block = %s successfully" % blk.number)
 
     def receive_transaction(self, transaction):
         try:
@@ -132,7 +180,7 @@ class ChainNode(BasePeer):
             self.fsm_state = ns.READY_STATE
             return
         # # request blocks
-        block_results = yield self.broadcast_request_block()
+        block_results = yield self.broadcast_request_block_height()
         # TODO (block_result = (result, connection)
         max_height = -1
         best_result = None
@@ -151,18 +199,10 @@ class ChainNode(BasePeer):
         log.msg("Found max block = %s from peer = %s" % (best_result.block_number, best_result.address))
         log.msg("Start downloading from = %s" % best_result.address)
         try:
-            blocks = yield self.request_blocks(best_result.address, start_from=self.chain.height)
+            blocks = yield self.request_blocks(best_result.address, start_from=self.chain.height + 1)
             log.msg("Downloaded %s blocks" % len(blocks))
         except defer.TimeoutError:
             log.msg("Timeout to download blocks")
-
-    def broadcast_request_block(self):
-        rbh = RequestBlockHeight(self.chain.height, self.id)
-        return self.broadcast_request(rbh, rbh.identifier)
-
-    def request_blocks(self, addr, start_from=settings.GENESIS_BLOCK_NUMBER):
-        rbl = RequestBlocks(start_from, addr)
-        return self.send_request(addr, rbl)
 
     def receive_block(self, block):
         try:

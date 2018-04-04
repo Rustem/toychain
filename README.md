@@ -10,7 +10,7 @@ Project is developed with twisted networking tools.
 2. Verify signed transactions (March 27, 2018) - done
 3. Http API for relaying new transactions (March 27, 2018) - done
 2. Define Block and Blockchain data structures (March 28, 2018) - done
-3. Run new node from Genesis Block (March 28, 2018) - doing
+3. Run new node from Genesis Block (March 28, 2018) - done
 4. Aggregate Transactions under TransactionPool (March 28, 2018)
 5. Generate block from transactions under TransactionPool and commit block to blockchain (March 29, 2018) 
 6. Relay block to the chain network (March 29, 2018) (doing)
@@ -20,7 +20,7 @@ Project is developed with twisted networking tools.
 
 ## Current Todos
 1. Define Transaction pool
-3. Load node with blockchain and genesis config
+3. Load node with blockchain and genesis config (done)
 2. Aggregate transactions under transaction pool
 
 
@@ -161,76 +161,3 @@ The log above clearly indicates that the node has run as p2p endpoint on port 63
 Made by Rustem Kamun a.k.a xepa4ep
 
 rustem@toptal.com
-
-## DEVELOPER NOTES
-
-```bash
-
-About blockchain
-
-1. Genesis block stores configuration of the chain
-2. Node can be in different modes:
-    "genesis" => node generates genesis block
-    "boot" => node is downloaded data from other peers
-    "ready" => if node is miner he can start mine new blocks because node is actualized
-
-Genesis state: 
-    - node generates genesis block
-    - relays it over the network
-    - move it states to 'ready'
-
-Boot state
-    - node broadcast request about blockchain "height"
-    - takes the maximum among all the answers (or from the leader)
-    - if his height is less than height of the current => actualized 
-    - move it state to "ready"
-
-Ready state
-    - if node is miner, then can mine new blocks every 10 minutes
-
-Dying state
-    - if no genesis block yet created
-    - if wait for longer than 10 minutes
-
-Dead state
-    - causes node to stop (closing all the ports)
-
-
-Creating network
-0. Create miner account with twistd create-account
-1. Prepare json configuration file e.g. genesis.json
-2. Use twistd init -c genesis.json
-
-Initializing blockchain / Generating genesis block
-1. Creates a special block with configuration data and coinbase transaction
-2. Stores it in the level db of the specified user
-3. Stops the service
-
-Connecting as client
-1. Connect to the network
-2. Sends request about the highest block known so far
-3. if somebody has block higher => goes to "boot" mode in background thread
-4. once blocks are downlaoded  move to "ready" mode
-5. If miner can mine
-
-
-Reconcialiation:
-
-1. Node A sends request of higest block including to Node B
-2. Node B responded with his highest block
-3. Node A sends ack with his highest block
-
-4. If Node A has block higher than B => Node B moves to boot mode
-    - Node B have to find LCA between A, B chains
-    - once LCA found, Node B can download starting from the block height
-
-Finding LCA
-    - get 100 blocks ids starting from block number X
-    - if among them found common ids, take the highest
-    - otherwise take next 100 starting from X - 100 and so on
-
-
-
-
-
-```

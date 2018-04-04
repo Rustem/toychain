@@ -192,6 +192,7 @@ class TransactionList(object):
             rv.append(txn.to_dict())
         return rv
 
+
 class Block(BaseMessage):
     """Represents immutable block data structure.
 
@@ -265,6 +266,23 @@ class Block(BaseMessage):
         concat_str = "%s%s" % (nonce, block_hash)
         return hash_message(concat_str.encode())
 
+    @classmethod
+    def deserialize(cls, bytes):
+        """
+        Deserializes block depending on its type.
+        Supported types: Block, GenesisBlock
+        :param bytes:
+        :return:
+        """
+        blk_registry = {cls.identifier: cls}
+        for kls in Block.__subclasses__():
+            blk_registry[kls.identifier] = kls
+        blk_type = bytes[:3].decode()
+        if blk_type not in blk_registry:
+            raise MessageDeserializationException(cls.identifier, blk_type)
+        kls = blk_registry.get(blk_type)
+        return kls.from_dict(kls.loads(bytes[3:]))
+
     def to_dict(self):
         data = {
             "number": self.number,
@@ -284,6 +302,8 @@ class Block(BaseMessage):
 
     @classmethod
     def from_dict(cls, data):
+        if cls == Block and data["number"] == settings.GENESIS_BLOCK_NUMBER:
+            return GenesisBlock.from_dict(data)
         return cls(
             id=data.get("id"),
             number=data["number"],
@@ -333,7 +353,8 @@ class GenesisBlock(Block):
             "block_mining": config["block_mining"],
             "network_id": config["network_id"],
             "max_peers": config["max_peers"],
-            "genesis_block": config["genesis_block"]}
+            "genesis_block": config["genesis_block"],
+            "alloc": config["alloc"]}
         json_data = json.dumps(data)
         genesis_block = cls(number=settings.GENESIS_BLOCK_NUMBER,
                             hash_parent=settings.BLANK_SHA_256,
@@ -423,7 +444,7 @@ class ResponseBlockHeight(RequestBlockHeight):
     identifier = "BLH" # block height
 
 
-class RequestBlocks(BaseRequestMessage):
+class RequestBlockList(BaseRequestMessage):
 
     identifier = "RBL"
 
@@ -440,4 +461,34 @@ class RequestBlocks(BaseRequestMessage):
 
     @classmethod
     def from_dict(self, data):
-        return RequestBlocks(data["start_from_block"], data["address"], data["request_id"])
+        return RequestBlockList(data["start_from_block"], data["address"], data["request_id"])
+
+
+class ResponseBlockList(BaseRequestMessage):
+    identifier = "ABL"
+
+    def __init__(self, blocks, address, request_id=None):
+        """
+        :param blocks:
+        :type blocks: list[any]
+        :param address:
+        :param request_id:
+        """
+        super().__init__(address, request_id)
+        if blocks:
+            if isinstance(blocks[0], bytes):
+                blocks = [Block.deserialize(b) for b in blocks]
+            elif isinstance(blocks[0], dict):
+                blocks = [Block.from_dict(b) for b in blocks]
+        self.blocks = blocks
+
+    def to_dict(self):
+        return {"request_id": self.request_id,
+                "address": self.address,
+                "blocks": [blk.to_dict() for blk in self.blocks],}
+
+    @classmethod
+    def from_dict(cls, data):
+        return ResponseBlockList(data["blocks"],
+                                 data["address"],
+                                 data["request_id"])

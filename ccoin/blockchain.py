@@ -1,7 +1,6 @@
 import plyvel
 import os
 from twisted.python import log
-
 from ccoin import settings
 from ccoin.exceptions import BlockChainViolated, BlockTimeError, BlockWrongDifficulty, \
     BlockWrongNumber, BlockWrongTransactionHash, BlockPoWFailed, TransactionApplyException, BlockApplyException, \
@@ -88,7 +87,18 @@ class Blockchain(object):
     def change_head(self, new_height):
         self.height = new_height
         self.head = self.db.get(self.to_key(new_height))
-        self.db.put(b"height", self.height)
+        self.db.put(b"height", str(self.height).encode())
+
+    def get_block(self, blk_number):
+        """
+        Loads block by block number from database.
+        :param blk_number:
+        :return:
+        """
+        blk_bytes = self.db.get(self.to_key(blk_number))
+        if blk_bytes is None:
+            return
+        return Block.deserialize(blk_bytes)
 
     def apply_blocks(self, blocks, worldstate):
         """
@@ -101,6 +111,12 @@ class Blockchain(object):
             self.apply_block(block, worldstate)
 
     def apply_block(self, block, worldstate):
+        if isinstance(block, GenesisBlock):
+            self.apply_genesis_block(block, worldstate)
+        elif isinstance(block, Block):
+            self.apply_next_block(block, worldstate)
+
+    def apply_next_block(self, block, worldstate):
         """
         :param block:
         :type block: ccoin.messages.Block
@@ -145,30 +161,26 @@ class Blockchain(object):
                 raise BlockApplyException(block)
             block.set_hash_state(new_state_root)
 
-    def apply_genesis_block(self, worldstate):
-        blk = self.genesis_block
-        if blk is None or blk.number != 1:
+    def apply_genesis_block(self, genesis_block, worldstate):
+        if genesis_block is None or genesis_block.number != 1:
             raise BlockApplyException(self.genesis_block)
         # 4. Check that transaction root is valid
-        if blk.get_transactions_hash() != blk.hash_txns:
-            raise BlockWrongTransactionHash(blk)
+        if genesis_block.get_transactions_hash() != genesis_block.hash_txns:
+            raise BlockWrongTransactionHash(genesis_block)
         # 5. Check that the proof of work on the block is valid.
-        if not verify_pow(blk.difficulty, blk.mining_hash, blk.nonce, blk.id):
-            raise BlockPoWFailed(blk)
-        try:
-            # 6. Let TX be the block's transaction list, with n transactions. For all i in 0...n-1, set S[i+1] = APPLY(S[i],TX[i]). If any applications returns an error, or if the total gas consumed in the block up until this point exceeds the GASLIMIT, return an error.
-            worldstate.apply_txns(blk.body)
-        except TransactionApplyException:
-            log.err()
-            raise BlockApplyException(blk)
-        else:
-            # 7. Let S_FINAL be S[n], but adding the block reward paid to the miner.
-            new_state_root = worldstate.calculate_hash()
-            # 8. Check if the Merkle tree root of the state S_FINAL is equal to the final state root provided in the block header.
-            # If it is, the block is valid; otherwise, it is not valid.
-            if new_state_root != blk.hash_state:
-                raise BlockApplyException(blk)
-            blk.set_hash_state(new_state_root)
+        if not verify_pow(genesis_block.difficulty, genesis_block.mining_hash, genesis_block.nonce, genesis_block.id):
+            raise BlockPoWFailed(genesis_block)
+        # 6. Create Initial State from genesis configuration
+        prev_block_height = self.new_block(worldstate, genesis_block)
+        worldstate.from_genesis_block(genesis_block, commit=True)
+        # 7. Let S_FINAL be S[n], but adding the block reward paid to the miner.
+        new_state_root = worldstate.state_hash
+        # 8. Check if the Merkle tree root of the state S_FINAL is equal to the final state root provided in the block header.
+        # If it is, the block is valid; otherwise, it is not valid.
+        if new_state_root != genesis_block.hash_state:
+            self.rollback_block(worldstate, genesis_block.number, prev_block_height)
+            raise BlockApplyException(genesis_block)
+        genesis_block.set_hash_state(new_state_root)
 
     def rollback_block(self, worldstate, current_block_height, prev_block_height):
         """

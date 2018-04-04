@@ -2,6 +2,7 @@ import plyvel
 import json
 import os
 from ccoin.accounts import Account
+from ccoin.app_conf import AppConfig
 from ccoin.exceptions import TransactionBadNonce, TransactionSenderIsOutOfCoins, SenderStateDoesNotExist
 from ccoin.messages import Transaction
 from ccoin.security import hash_message
@@ -106,6 +107,17 @@ class WorldState(object):
     def to_key(block_number, account_addr):
         return ("worldstate.blk-%s:account-%s" % (block_number, account_addr)).encode()
 
+    def from_genesis_block(self, genesis_block, commit=True):
+        """Creates/Initializes state from genesis block."""
+        genesis_config = genesis_block.loaded_data
+        for addr, data in genesis_config.get("alloc", {}).items():
+            if 'balance' in data:
+                self.set_balance(addr, data["balance"])
+            if 'nonce' in data:
+                self.set_nonce(addr, data["nonce"])
+        if commit:
+            self.commit()
+
     def new_block(self, block_height):
         """
         Creates new block head with the state of previous block head.
@@ -167,7 +179,6 @@ class WorldState(object):
                 self.cache[account_addr] = AccountState(account_addr)
         return self.cache.get(account_addr, None)
 
-
     def set_state_hash(self, state_hash):
         self.state_hash = state_hash
         self.db.put(b"state_hash", self.state_hash.encode())
@@ -175,6 +186,8 @@ class WorldState(object):
     def calculate_hash(self):
         concat = []
         for state_key, state_bytes in self.db:
+            if state_key == b"state_hash":
+                continue
             concat.append(state_key + state_bytes)
         if not concat:
             return
