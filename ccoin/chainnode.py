@@ -70,7 +70,6 @@ class ChainNode(BasePeer):
         """
         super(ChainNode, self).__init__(address)
         self.account = None
-        self.allow_mine = False
         self.fsm_state = fsm_state
         self.state = None  # world state
         self.chain = None
@@ -82,6 +81,10 @@ class ChainNode(BasePeer):
             return
         return self.chain.genesis_block
 
+    @property
+    def allow_mine(self):
+        return self.chain.genesis_block.can_mine(self.account.address)
+
     def load_account(self):
         self.account = Account.fromConfig()
         if not self.account:
@@ -90,7 +93,6 @@ class ChainNode(BasePeer):
     def load_chain(self):
         self.chain = Blockchain.load(AppConfig["storage_path"], AppConfig["chain_db"], self.account.address)
         if self.chain.initialized():
-            self.allow_mine = self.chain.genesis_block.can_mine(self.account.public_key)
             log.msg("Blockchain loaded at block=%s" % self.chain.height)
 
     def load_state(self):
@@ -161,6 +163,10 @@ class ChainNode(BasePeer):
                 break
             else:
                 log.msg("Applied block = %s successfully" % blk.number)
+                log.msg("Changed state from boot to ready")
+                if self.allow_mine:
+                    log.msg("Ready mine new blocks!!!")
+                self.fsm_state = settings.READY_STATE
 
     def receive_transaction(self, transaction):
         try:
@@ -193,6 +199,9 @@ class ChainNode(BasePeer):
                 best_result = msg
         if not best_result:
             log.msg("Nobody has block higher than mine")
+            self.fsm_state = ns.READY_STATE
+            if self.allow_mine:
+                log.msg("Ready to mine new blocks!!!")
             return
         # request blocks
         cur_block_height = self.chain.height

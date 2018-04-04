@@ -110,8 +110,7 @@ class SimpleHandshakeProtocol(IntNStringReceiver, DeferredRequestMixin):
         :rtype: defer.Deferred
         """
         ack_msg = HelloAckMessage(self.node_id, request_id=request_id)
-        d = self.send_request(self.peer_node_id, ack_msg)
-        return d
+        self.sendString(ack_msg.serialize())
 
     def get_connections(self):
         return {self.peer_node_id: self}
