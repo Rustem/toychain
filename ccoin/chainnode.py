@@ -6,7 +6,7 @@ from ccoin.accounts import Account
 from ccoin.app_conf import AppConfig
 from ccoin.blockchain import Blockchain
 from ccoin.exceptions import AccountDoesNotExist, TransactionApplyException, BlockApplyException
-from ccoin.messages import RequestBlockHeight, ResponseBlockHeight
+from ccoin.messages import RequestBlockHeight, ResponseBlockHeight, RequestBlocks
 from ccoin.p2p_network import BasePeer
 from ccoin.worldstate import WorldState
 
@@ -106,7 +106,9 @@ class ChainNode(BasePeer):
         """
 
         if self.chain.height > request_block.block_number:
-            rebh = ResponseBlockHeight(self.chain.height, request_id=request_block.request_id)
+            rebh = ResponseBlockHeight(self.chain.height,
+                                       self.id,
+                                       request_id=request_block.request_id)
             sender.sendString(rebh.serialize())
 
     def receive_block_height_response(self, response_block, sender):
@@ -132,21 +134,35 @@ class ChainNode(BasePeer):
         # # request blocks
         block_results = yield self.broadcast_request_block()
         # TODO (block_result = (result, connection)
-        print(block_results)
+        max_height = -1
+        best_result = None
+        for success, value in block_results:
+            if not success:
+                continue
+            msg = value
+            if msg.block_number > max_height:
+                max_height = msg.block_number
+                best_result = msg
+        if not best_result:
+            log.msg("Nobody has block higher than mine")
+            return
+        # request blocks
+        cur_block_height = self.chain.height
+        log.msg("Found max block = %s from peer = %s" % (best_result.block_number, best_result.address))
+        log.msg("Start downloading from = %s" % best_result.address)
+        try:
+            blocks = yield self.request_blocks(best_result.address, start_from=self.chain.height)
+            log.msg("Downloaded %s blocks" % len(blocks))
+        except defer.TimeoutError:
+            log.msg("Timeout to download blocks")
 
     def broadcast_request_block(self):
-        rbl = RequestBlockHeight(self.chain.height)
-        return self.broadcast_request(rbl, rbl.identifier)
+        rbh = RequestBlockHeight(self.chain.height, self.id)
+        return self.broadcast_request(rbh, rbh.identifier)
 
-    def make_request(self, address, msg, timeout=settings.DEFAULT_REQUEST_TIMEOUT):
-        conn = self.peers_connection.get(address)
-        if not conn:
-            # TODO log
-            return
-        try:
-            conn.sendString(msg.serialize())
-        finally:
-            return self.drp.add(msg, timeout=timeout)
+    def request_blocks(self, addr, start_from=settings.GENESIS_BLOCK_NUMBER):
+        rbl = RequestBlocks(start_from, addr)
+        return self.send_request(addr, rbl)
 
     def receive_block(self, block):
         try:

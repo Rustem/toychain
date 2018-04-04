@@ -81,11 +81,11 @@ class DeferredRequestMixin(object):
             response_errback = self.on_request_failure
         d.addErrback(response_errback, request_id=req_id)
 
-        self.request_registry[req_id] = d
         # Send request over the wire
         connection = self.get_connection(addr)
         connection.sendString(msg.serialize())
-        # Increment counter
+        # Finalize
+        self.request_registry[req_id] = d
         self.cnt += 1
         return d
 
@@ -118,6 +118,8 @@ class DeferredRequestMixin(object):
 
     def on_request_failure(self, failure, request_id):
         """Defauler deferred request error handler"""
+        # TODO use requests only for when it necessary
+        # TODO use normal messages otherwise
         failure.trap(defer.TimeoutError)
-        log.msg("ERROR: request with request_id=%s failed for the reason=%s" % (request_id, str(failure)))
+        log.err(failure)
         # return failure

@@ -367,7 +367,13 @@ class GenesisBlock(Block):
 
 class BaseRequestMessage(BaseMessage):
 
-    def __init__(self, request_id=None):
+    def __init__(self, address, request_id=None):
+        """
+        :param address: sender address
+        :type address: str
+        :param request_id:
+        """
+        self.address = address
         self.request_id = request_id
 
     def gen_request_id(self):
@@ -378,14 +384,10 @@ class HelloMessage(BaseRequestMessage):
 
     identifier = "HEY"
 
-    def __init__(self, address, request_id=None):
-        super().__init__(request_id)
-        self.address = address
-
     def to_dict(self):
         return {
             "request_id": self.request_id,
-            "address": self.address
+            "address": self.address,
         }
 
     @classmethod
@@ -399,22 +401,43 @@ class HelloAckMessage(HelloMessage):
 
 class RequestBlockHeight(BaseRequestMessage):
 
-    identifier = "RBL"
+    identifier = "RBH"
 
-    def __init__(self, block_number, request_id=None):
-        super().__init__(request_id)
+    def __init__(self, block_number, address, request_id=None):
+        super().__init__(address, request_id)
         self.block_number = block_number
 
     def to_dict(self):
         return {
             "request_id": self.request_id,
-            "block_number": self.block_number
+            "block_number": self.block_number,
+            "address": self.address
         }
 
     @classmethod
     def from_dict(self, data):
-        return RequestBlockHeight(data["block_number"], data["request_id"])
+        return RequestBlockHeight(data["block_number"], data["address"], data["request_id"])
 
 
 class ResponseBlockHeight(RequestBlockHeight):
     identifier = "BLH" # block height
+
+
+class RequestBlocks(BaseRequestMessage):
+
+    identifier = "RBL"
+
+    def __init__(self, start_from_block, address, request_id=None):
+        super().__init__(address, request_id)
+        self.start_from_block = start_from_block
+
+    def to_dict(self):
+        return {
+            "request_id": self.request_id,
+            "start_from_block": self.start_from_block,
+            "address": self.address
+        }
+
+    @classmethod
+    def from_dict(self, data):
+        return RequestBlocks(data["start_from_block"], data["address"], data["request_id"])

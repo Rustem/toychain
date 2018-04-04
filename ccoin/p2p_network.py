@@ -11,7 +11,8 @@ from twisted.python import log
 from ccoin.base import DeferredRequestMixin
 from ccoin.discovery import PeerDiscoveryService
 from ccoin.exceptions import NotSupportedMessage
-from ccoin.messages import Transaction, HelloMessage, HelloAckMessage, RequestBlockHeight, ResponseBlockHeight
+from ccoin.messages import Transaction, HelloMessage, HelloAckMessage, RequestBlockHeight, ResponseBlockHeight, \
+    RequestBlocks
 from ccoin.peer_info import PeerInfo
 from ccoin.rest_api import run_http_api
 
@@ -256,7 +257,7 @@ class BasePeer(Factory, DeferredRequestMixin):
             self.peers_connection[peer_address].sendString(msg_object.serialize())
 
     def parse_msg(self, msg_type, msg, sender):
-        if msg_type == "RBL":
+        if msg_type == "RBH":
             obj = RequestBlockHeight.deserialize(msg)
             self.receive_block_height_request(obj, sender)
             return
@@ -268,6 +269,9 @@ class BasePeer(Factory, DeferredRequestMixin):
             obj = Transaction.deserialize(msg)
             self.receive_transaction(obj)
             return
+        elif msg_type == "RBL":
+            obj = RequestBlocks.deserialize(msg)
+            self.receive_request_blocks(obj, sender)
         elif msg_type == "BLK":
             obj = None #Block.deserialize(msg)
             self.receive_block(obj)
@@ -275,11 +279,11 @@ class BasePeer(Factory, DeferredRequestMixin):
         raise NotImplementedError("Can\'t parse %s: %s" % (msg_type, msg))
 
     @abstractmethod
-    def receive_block_height_request(self, request_block, sender):
+    def receive_block_height_request(self, request_block_height, sender):
         """
         Handles block request with block response
-        :param request_block:
-        :type request_block: RequestBlockHeight
+        :param request_block_height:
+        :type request_block_height: RequestBlockHeight
         :param sender
         :type sender: BasePeerConnection
         :return:
@@ -287,9 +291,19 @@ class BasePeer(Factory, DeferredRequestMixin):
         pass
 
     @abstractmethod
-    def receive_block_height_response(self, response_block, sender):
+    def receive_request_blocks(self, request_blocks, sender):
         """
-        :param response_block:
+        Handles download blocks request
+        :param request_blocks:
+        :param sender:
+        :return:
+        """
+        pass
+
+    @abstractmethod
+    def receive_block_height_response(self, response_block_height, sender):
+        """
+        :param response_block_height:
         :param sender:
         :return:
         """
