@@ -16,7 +16,7 @@ class Blockchain(object):
     SPECIAL_KEYS = (b"height",)
 
     @classmethod
-    def load(cls, storage_path, db_name, account_id):
+    def load(cls, storage_path, db_name, account_id, **kwargs):
         """
         Loads blockchain with necessary properties and returns it
         :return: blockchain instance
@@ -39,10 +39,10 @@ class Blockchain(object):
         # load head
         head_key = cls.to_key(b"height")
         head = db.get(head_key)
-        return Blockchain(db, genesis_block, height, head)
+        return Blockchain(db, genesis_block, height, head, **kwargs)
 
     @classmethod
-    def create_new(cls, storage_path, db_name, genesis_block):
+    def create_new(cls, storage_path, db_name, genesis_block, **kwargs):
         """
         Creates new blockchain with genesis block
         :param storage_path:
@@ -57,7 +57,7 @@ class Blockchain(object):
         block_key = cls.to_key(genesis_block.number)
         db.put(block_key, genesis_block.serialize())
         db.put(b"height", int2bytes(genesis_block.number))
-        return Blockchain(db, genesis_block, 0, genesis_block)
+        return Blockchain(db, genesis_block, 0, genesis_block, **kwargs)
 
     @staticmethod
     def to_key(key):
@@ -65,7 +65,7 @@ class Blockchain(object):
             return key
         return ("blk-%s" % key).encode()
 
-    def __init__(self, db, genesis_block, height, head):
+    def __init__(self, db, genesis_block, height, head, new_head_cb=None):
         """
         :param db: blockchain database connection
         :type db: plyvel.DB
@@ -75,11 +75,14 @@ class Blockchain(object):
         :type height: int
         :param head: latest block
         :type head: Block
+        :param new_head_cb: callback executed once head is changed
+        :type new_head_cb: callable
         """
         self.db = db
         self.genesis_block = genesis_block
         self.height = height
         self.head = head
+        self.new_head_cb = new_head_cb
 
     def initialized(self):
         return self.genesis_block is not None
@@ -160,6 +163,8 @@ class Blockchain(object):
                 self.rollback_block(worldstate, block.number, prev_block_height)
                 raise BlockApplyException(block)
             block.set_hash_state(new_state_root)
+            if self.new_head_cb:
+                self.new_head_cb(block)
 
     def apply_genesis_block(self, genesis_block, worldstate):
         if genesis_block is None or genesis_block.number != 1:
@@ -181,6 +186,8 @@ class Blockchain(object):
             self.rollback_block(worldstate, genesis_block.number, prev_block_height)
             raise BlockApplyException(genesis_block)
         genesis_block.set_hash_state(new_state_root)
+        if self.new_head_cb:
+            self.new_head_cb(genesis_block)
 
     def rollback_block(self, worldstate, current_block_height, prev_block_height):
         """

@@ -25,7 +25,17 @@ Project is developed with twisted networking tools.
 2. Aggregate transactions under transaction pool (doing)
 
 
- 
+Callbacks todos:
+ on_new_head() 
+    if miner should remove those transactions from the queue that came from new block head
+    
+```python
+def _on_new_head(self, block):
+    self.transaction_queue = self.transaction_queue.diff(block.transactions)
+    self._head_candidate_needs_updating = True
+    
+def fsm_state_changed()
+```
 
 ## Requirements
 
