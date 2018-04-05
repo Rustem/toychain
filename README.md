@@ -21,9 +21,9 @@ Project is developed with twisted networking tools.
 10. Finish API (doing)
 
 ## Current Todos
-1. Aggregate transactions under transaction pool (need to test)
+1. Aggregate transactions under transaction pool (done)
 2. Start miner nodes with special option --node_type=validator (done)
-3. API to send transactions
+3. API to send transactions (done)
 4. API to check transaction pool size
 5. API to query a block count
 6. API to query a single block and return all its structure

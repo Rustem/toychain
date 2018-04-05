@@ -209,7 +209,6 @@ class WorldState(object):
         # TODO move to commons.py
         sender = Account(from_)
         sender_state = self.account_state(sender.address)
-        print(sender.address)
         if sender_state is None:
             raise SenderStateDoesNotExist(from_)
         txn = Transaction(sender_state.nonce, from_, to=to, amount=amount, data=command)
