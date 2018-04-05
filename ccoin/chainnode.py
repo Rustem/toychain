@@ -77,7 +77,7 @@ class ChainNode(BasePeer):
         :raises: NodeCannotBeStartedException if account does not exists
         """
         address = AppConfig["account_address"]
-        new_node = ChainNode(address)
+        new_node = cls(address)
         new_node.load_account()
         return new_node
 
@@ -105,6 +105,7 @@ class ChainNode(BasePeer):
         self.account = Account.fromConfig()
         if not self.account:
             raise AccountDoesNotExist(self.id)
+        self.account.load_private_key()
 
     def load_chain(self, **kwargs):
         self.chain = Blockchain.load(AppConfig["storage_path"], AppConfig["chain_db"], self.account.address, **kwargs)
@@ -113,7 +114,7 @@ class ChainNode(BasePeer):
 
     def load_state(self):
         self.state = WorldState.load(AppConfig["storage_path"], AppConfig["state_db"], self.chain.height)
-        log.msg("Worldstate loaded at block=%s with state_hash=%s" % (self.state.height, self.state.state_hash))
+        log.msg("Worldstate loaded at block=%s with hash_state=%s" % (self.state.height, self.state.hash_state))
 
     def receive_block_height_request(self, request_block, sender):
         """
@@ -209,7 +210,7 @@ class ChainNode(BasePeer):
         if self.fsm_state != ns.BOOT_STATE:
             return
         if not self.peers_connection:
-            self.fsm_state = ns.READY_STATE
+            self.change_fsm_state(ns.READY_STATE)
             return
         # # request blocks
         block_results = yield self.broadcast_request_block_height()
@@ -224,9 +225,7 @@ class ChainNode(BasePeer):
                 best_result = msg
         if not best_result:
             log.msg("Nobody has block higher than mine")
-            self.fsm_state = ns.READY_STATE
-            if self.allow_mine:
-                log.msg("Ready to mine new blocks!!!")
+            self.change_fsm_state(ns.READY_STATE)
             return
         # request blocks
         cur_block_height = self.chain.height
@@ -267,7 +266,8 @@ class ChainNode(BasePeer):
         :return: transaction reference
         :rtype: Transaction
         """
-        txn = self.state.make_txn(command=command, to=to, amount=amount)
+        print(from_, to)
+        txn = self.state.make_txn(from_, to, command=command, amount=amount)
         return txn
 
     def relay_txn(self, transaction):
@@ -283,7 +283,7 @@ class ChainNode(BasePeer):
         # 2. sign transaction by sender's private key (ready to be sent)
         transaction.sign(self.account.private_key)
         # 3. relay it to the network
-        self.broadcast(transaction, transaction.identifier)
+        self.broadcast(transaction)
         return txn_id
 
 
@@ -308,12 +308,16 @@ class MinerNode(ChainNode):
         self.candidate_block_loop_chk = LoopingCall(self.mine_and_broadcast_block)
 
     def on_change_fsm_state(self, old_fsm_state, new_fsm_state):
+        super().on_change_fsm_state(old_fsm_state, new_fsm_state)
+        print("there", self.can_mine)
         if new_fsm_state == settings.READY_STATE and self.can_mine:
             log.msg("Ready mine new blocks!!!")
             self.candidate_block_loop_chk.start(settings.NEW_BLOCK_INTERVAL_CHECK)
 
     def load_chain(self):
         super().load_chain(new_head_cb=self.on_new_head)
+        if self.chain.initialized():
+            self.can_mine = self.chain.genesis_block.can_mine(self.id)
 
     def on_new_head(self, block):
         self.txqueue = self.txqueue.diff(block.body)
@@ -367,12 +371,13 @@ class MinerNode(ChainNode):
         verify_status = super().receive_transaction(transaction)
         if verify_status:
             self.txqueue.add_transaction(transaction)
+            log.msg("RECEIVED TX TO QUEUE: %s")
             if self.can_mine:
                 self.ready_mine_new_block = True
                 self.mine_and_broadcast_block()
 
     def receive_block(self, block):
-        raise NotImplementedError("Require to extend from chain node")
+        super().receive_block(block)
 
 
 

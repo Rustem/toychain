@@ -22,7 +22,7 @@ Project is developed with twisted networking tools.
 
 ## Current Todos
 1. Aggregate transactions under transaction pool (need to test)
-2. Start miner nodes with special option --miner=True
+2. Start miner nodes with special option --node_type=validator (done)
 3. API to send transactions
 4. API to check transaction pool size
 5. API to query a block count

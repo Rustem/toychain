@@ -26,7 +26,7 @@ def state_from_genesis_declaration(genesis_config, block=None):
         block = block_from_genesis_declaration(genesis_config)
     state = WorldState.load(AppConfig["storage_path"], AppConfig["state_db"], block.nonce)
     state.from_genesis_block(block)
-    block.hash_state = state.calculate_hash()
+    block.hash_state = state.hash_state
     return state
 
 

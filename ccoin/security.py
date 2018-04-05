@@ -66,7 +66,7 @@ def sign(private_hex, message_bytes):
 def verify(base64_signature, message_bytes, public_hex):
     """Verifies signature with RSA cryptography tools"""
     public_bytes = binascii.unhexlify(public_hex)
-    public_key = serialization.load_pem_public_key(public_bytes.encode(), backend=default_backend())
+    public_key = serialization.load_pem_public_key(public_bytes, backend=default_backend())
     signature = base64.b64decode(base64_signature.encode('ascii'))
     digest = hash_message(message_bytes, hex=False)
     pad = padding.PSS(

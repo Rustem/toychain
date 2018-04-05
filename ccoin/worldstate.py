@@ -11,9 +11,8 @@ from ccoin.utils import ensure_dir
 
 class AccountState(object):
 
-    def __init__(self, public_key, nonce=0, balance=0):
-        self.public_key = public_key
-        self.address = self.public_key[115:155]
+    def __init__(self, address, nonce=0, balance=0):
+        self.address = address
         self.nonce = nonce
         self.balance = balance
 
@@ -26,7 +25,8 @@ class AccountState(object):
         :return: message instance
         :rtype: Message
         """
-        return cls.from_dict(cls.loads(bytes.decode()))
+        data = dict(cls.loads(bytes.decode()))
+        return cls.from_dict(data)
 
     def serialize(self):
         """
@@ -34,7 +34,8 @@ class AccountState(object):
         :return: bytes
         :rtype: bytes
         """
-        return self.dumps(self.to_dict())
+        sorted_data = sorted(self.to_dict().items())
+        return self.dumps(sorted_data)
 
     def to_dict(self):
         """
@@ -43,7 +44,7 @@ class AccountState(object):
         :rtype: dict[any]
         """
         return {
-            "public_key": self.public_key,
+            "address": self.address,
             "nonce": self.nonce,
             "balance": self.balance
         }
@@ -70,7 +71,7 @@ class AccountState(object):
 
 class WorldState(object):
 
-    SPECIAL_KEYS = (b"state_hash",)
+    SPECIAL_KEYS = (b"hash_state",)
 
 
     @classmethod
@@ -82,21 +83,21 @@ class WorldState(object):
         """
         ensure_dir(storage_path)
         db = plyvel.DB(os.path.join(storage_path, db_name), create_if_missing=True)
-        state_hash = db.get(b"state_hash", None)
-        if state_hash:
-            state_hash = state_hash.decode()
-        return WorldState(db, block_height, state_hash)
+        hash_state = db.get(b"hash_state", None)
+        if hash_state:
+            hash_state = hash_state.decode()
+        return WorldState(db, block_height, hash_state)
 
-    def __init__(self, db, block_height, state_hash=None):
+    def __init__(self, db, block_height, hash_state=None):
         """
         :param db:
         :type db: plyvel.DB
         :param block_height:
-        :param state_hash:
+        :param hash_state:
         """
         self.db = db
         self.height = block_height
-        self.state_hash = state_hash
+        self.hash_state = hash_state
         self.cache = {}
 
     @staticmethod
@@ -179,19 +180,20 @@ class WorldState(object):
                 self.cache[account_addr] = AccountState(account_addr)
         return self.cache.get(account_addr, None)
 
-    def set_state_hash(self, state_hash):
-        self.state_hash = state_hash
-        self.db.put(b"state_hash", self.state_hash.encode())
+    def set_state_hash(self, hash_state):
+        self.hash_state = hash_state
+        self.db.put(b"hash_state", self.hash_state.encode())
 
     def calculate_hash(self):
         concat = []
         for state_key, state_bytes in self.db:
-            if state_key == b"state_hash":
+            if state_key == b"hash_state":
                 continue
             concat.append(state_key + state_bytes)
         if not concat:
             return
         concat_bytes = b"|".join(concat)
+        print(concat_bytes, "STATE HASH")
         return hash_message(concat_bytes)
 
     def make_txn(self, from_, to, command=None, amount=None):
@@ -205,8 +207,10 @@ class WorldState(object):
         :return: transaction reference
         :rtype: Transaction
         """
+        # TODO move to commons.py
         sender = Account(from_)
         sender_state = self.account_state(sender.address)
+        print(sender.address)
         if sender_state is None:
             raise SenderStateDoesNotExist(from_)
         txn = Transaction(sender_state.nonce, from_, to=to, amount=amount, data=command)

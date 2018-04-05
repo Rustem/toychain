@@ -37,8 +37,8 @@ class Blockchain(object):
         # load height
         height = int(db.get(b"height"))
         # load head
-        head_key = cls.to_key(b"height")
-        head = db.get(head_key)
+        head_key = cls.to_key(height)
+        head = Block.deserialize(db.get(head_key))
         return Blockchain(db, genesis_block, height, head, **kwargs)
 
     @classmethod
@@ -179,13 +179,14 @@ class Blockchain(object):
         prev_block_height = self.new_block(worldstate, genesis_block)
         worldstate.from_genesis_block(genesis_block, commit=True)
         # 7. Let S_FINAL be S[n], but adding the block reward paid to the miner.
-        new_state_root = worldstate.state_hash
+        hash_state = worldstate.hash_state
+        print(hash_state, genesis_block.hash_state, worldstate.calculate_hash())
         # 8. Check if the Merkle tree root of the state S_FINAL is equal to the final state root provided in the block header.
         # If it is, the block is valid; otherwise, it is not valid.
-        if new_state_root != genesis_block.hash_state:
+        if hash_state != genesis_block.hash_state:
             self.rollback_block(worldstate, genesis_block.number, prev_block_height)
             raise BlockApplyException(genesis_block)
-        genesis_block.set_hash_state(new_state_root)
+        genesis_block.set_hash_state(hash_state)
         if self.new_head_cb:
             self.new_head_cb(genesis_block)
 

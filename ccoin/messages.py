@@ -26,7 +26,8 @@ class BaseMessage(ABC):
         msg_type = bytes[:3].decode()
         if cls.identifier != msg_type:
             raise MessageDeserializationException(cls.identifier, msg_type)
-        return cls.from_dict(cls.loads(bytes[3:]))
+        data = dict(cls.loads(bytes[3:]))
+        return cls.from_dict(data)
 
     def serialize(self):
         """
@@ -34,7 +35,8 @@ class BaseMessage(ABC):
         :return: bytes
         :rtype: bytes
         """
-        msg_bytes = self.dumps(self.to_dict())
+        sorted_data = sorted(self.to_dict().items())
+        msg_bytes = self.dumps(sorted_data)
         return self.identifier.encode() + msg_bytes
 
     @abstractmethod
@@ -52,7 +54,7 @@ class BaseMessage(ABC):
         """
         Returns original message instance
         :param data: message represented with python dict
-        :type data: bytes
+        :type data: dict
         :return: message instance
         :rtype: Message
         """
@@ -88,7 +90,7 @@ class Transaction(BaseMessage):
         self.to = to
         self.amount = amount
         self.data = data
-        self.time=time
+        self.time = time
         # RSA signature
         self.signature = signature
 

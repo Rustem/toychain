@@ -4,7 +4,7 @@ from twisted.plugin import IPlugin
 from twisted.internet import reactor, defer
 from twisted.internet.endpoints import TCP4ServerEndpoint
 from twisted.application import internet, service
-from ccoin.chainnode import ChainNode
+from ccoin.chainnode import node_registry
 from ccoin.exceptions import NodeCannotBeStartedException
 from twisted.plugins.base import Configurable
 
@@ -13,6 +13,7 @@ class Options(usage.Options):
 
     optParameters = [
         ['port', 'p', 0, 'Port number'],
+        ['node_type', 't', 'basic', 'Node type'],
         ['config', 'c', 'ccoin.json', 'Application config file']
     ]
 
@@ -74,16 +75,21 @@ class BlockchainNodeServiceMaker(Configurable):
         """
         self.configure(options)
         top_service = service.MultiService()
-        chain_node_factory = ChainNode.full()
+        Node = self.get_node(options)
+        node_factory = Node.full()
         # p2p server listens by default on automatically selected port
         # use --port={port_number} to set certain port
         p2p_service = StreamServerEndpointService(
             TCP4ServerEndpoint(reactor, int(options["port"])),
-            chain_node_factory,
-            listen_precondition_checks=[(chain_node_factory.load_account, True)],
-            got_listen=[chain_node_factory.p2p_listen_ok]
+            node_factory,
+            listen_precondition_checks=[(node_factory.load_account, True)],
+            got_listen=[node_factory.p2p_listen_ok]
         )
         top_service.addService(p2p_service)
         return top_service
+
+    def get_node(self, options):
+        node_type = options["node_type"]
+        return node_registry[node_type]
 
 service_maker = BlockchainNodeServiceMaker()
