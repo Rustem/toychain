@@ -9,7 +9,7 @@ from ccoin import settings
 from ccoin.accounts import Account
 from ccoin.app_conf import AppConfig
 from ccoin.blockchain import Blockchain
-from ccoin.common import make_head_candidate
+from ccoin.common import make_candidate_block
 from ccoin.exceptions import AccountDoesNotExist, TransactionApplyException, BlockApplyException
 from ccoin.messages import RequestBlockHeight, ResponseBlockHeight, RequestBlockList, ResponseBlockList, GenesisBlock
 from ccoin.p2p_network import BasePeer
@@ -292,6 +292,7 @@ class MinerNode(ChainNode):
     # TODO can mine should come during loading chain
     # TODO async loop that periodically checks and generates new block
     # TODO leader election algorithm between miners
+    # TODO develop make_candidate_block
 
     @staticmethod
     def identifier():
@@ -343,7 +344,7 @@ class MinerNode(ChainNode):
                 return
             self.ready_mine_new_block = False
             txqueue = deepcopy(self.txqueue)
-            self.candidate_block, self.candidate_block_state = make_head_candidate(
+            self.candidate_block, self.candidate_block_state = make_candidate_block(
                 self.chain, txqueue=txqueue)
         return self.candidate_block
 

@@ -1,4 +1,4 @@
-def make_head_candidate(chain, txqueue):
+def make_candidate_block(chain, txqueue):
     """
     :param chain:
     :param txqueue:

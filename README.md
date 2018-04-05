@@ -12,17 +12,24 @@ Project is developed with twisted networking tools.
 2. Define Block and Blockchain data structures (March 28, 2018) - done
 3. Run new node from Genesis Block (March 28, 2018) - done
 4. Aggregate Transactions under TransactionPool (March 28, 2018)
-5. Generate block from transactions under TransactionPool and commit block to blockchain (March 29, 2018) 
+5. Generate block from transactions under TransactionPool and commit block to blockchain (doing) 
 6. Relay block to the chain network (March 29, 2018) (done)
 7. Design World state (done)
 7. Apply block to the chain and world state (done)
 8. Apply transactions to the chain and world state (not tested)
 9. Mine block with Proof-of-Authority (done)
+10. Finish API (doing)
 
 ## Current Todos
-1. Define Transaction pool (done)
-3. Load node with blockchain and genesis config (done)
-2. Aggregate transactions under transaction pool (doing)
+1. Aggregate transactions under transaction pool (need to test)
+2. Start miner nodes with special option --miner=True
+3. API to send transactions
+4. API to check transaction pool size
+5. API to query a block count
+6. API to query a single block and return all its structure
+
+
+
 
 
 Callbacks todos:
