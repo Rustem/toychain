@@ -386,6 +386,14 @@ class GenesisBlock(Block):
     def miner_reward(self):
         return self.loaded_data["block_mining"]["reward"]
 
+    @property
+    def min_tx_bound(self):
+        return self.loaded_data["block_mining"]["min_bound"]
+
+    @property
+    def interval(self):
+        return self.loaded_data["block_mining"]["interval"]
+
     def get_miners(self):
         """Returns miners's addresses list."""
         return self.loaded_data["miners"]

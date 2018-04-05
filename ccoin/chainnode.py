@@ -1,5 +1,8 @@
+from abc import abstractstaticmethod
+
 from copy import deepcopy
 from twisted.internet import defer, reactor
+from twisted.internet.task import LoopingCall
 from twisted.python import log
 import ccoin.settings as ns
 from ccoin import settings
@@ -12,6 +15,7 @@ from ccoin.messages import RequestBlockHeight, ResponseBlockHeight, RequestBlock
 from ccoin.p2p_network import BasePeer
 from ccoin.pow import Miner
 from ccoin.transaction_queue import TransactionQueue
+from ccoin.utils import ts
 from ccoin.worldstate import WorldState
 
 
@@ -43,7 +47,19 @@ class DeferredRequestPool(object):
         raise NotImplementedError("")
 
 
+class Peer(BasePeer):
+
+    @staticmethod
+    @abstractstaticmethod
+    def identifier():
+        pass
+
+
 class ChainNode(BasePeer):
+
+    @staticmethod
+    def identifier():
+        return "basic"
 
     @classmethod
     def full(cls):
@@ -197,7 +213,6 @@ class ChainNode(BasePeer):
             return
         # # request blocks
         block_results = yield self.broadcast_request_block_height()
-        # TODO (block_result = (result, connection)
         max_height = -1
         best_result = None
         for success, value in block_results:
@@ -276,18 +291,25 @@ class MinerNode(ChainNode):
 
     # TODO can mine should come during loading chain
     # TODO async loop that periodically checks and generates new block
+    # TODO leader election algorithm between miners
+
+    @staticmethod
+    def identifier():
+        return "validator"
 
     def __init__(self, address, **kwargs):
         super().__init__(address, **kwargs)
         self.txqueue = TransactionQueue()
         self.can_mine = kwargs.get("can_mine", False)
-        self.ready_mine_new_block = kwargs.get("ready_mine_new_block", False)
+        self.ready_mine_new_block = kwargs.get("ready_mine_new_block", True)
         self.candidate_block = None
         self.candidate_block_state = None
+        self.candidate_block_loop_chk = LoopingCall(self.mine_and_broadcast_block)
 
     def on_change_fsm_state(self, old_fsm_state, new_fsm_state):
         if new_fsm_state == settings.READY_STATE and self.can_mine:
             log.msg("Ready mine new blocks!!!")
+            self.candidate_block_loop_chk.start(settings.NEW_BLOCK_INTERVAL_CHECK)
 
     def load_chain(self):
         super().load_chain(new_head_cb=self.on_new_head)
@@ -298,6 +320,17 @@ class MinerNode(ChainNode):
         # In case mining node started without any data
         if isinstance(block, GenesisBlock):
             self.can_mine = block.can_mine(self.id)
+            if self.can_mine:
+                log.msg("Ready mine new blocks!!!")
+
+    def maybe_new_block(self):
+        if len(self.txqueue) >= self.genesis_block.min_tx_bound:
+            # more than 10 transaction in resided the queue
+            return True
+        elif ts() - self.chain.head.time >= self.genesis_block.interval:
+            # 10 minutes left from the last mined block
+            return True
+        return False
 
     def generate_candidate_block(self):
         """Generates new block from the transaction queue.
@@ -306,6 +339,8 @@ class MinerNode(ChainNode):
             #. 10 minutes has left from the last time
         """
         if self.ready_mine_new_block:
+            if not self.maybe_new_block():
+                return
             self.ready_mine_new_block = False
             txqueue = deepcopy(self.txqueue)
             self.candidate_block, self.candidate_block_state = make_head_candidate(
@@ -313,12 +348,17 @@ class MinerNode(ChainNode):
         return self.candidate_block
 
     def broadcast_new_block(self, block):
-        raise NotImplementedError("")
+        log.msg('Broadcasting block with hash: %s and txs: %s' % (block.id, block.body))
+        self.broadcast(block)
 
     def mine_and_broadcast_block(self):
-        if not self.candidate_block:
+        if not self.can_mine:
             return
-        block = Miner(self.candidate_block).mine(start_nonce=0)
+        cand_blk = self.generate_candidate_block()
+        if cand_blk is None:
+            log.msg("New block is not ready to be generated.")
+            return
+        block = Miner(cand_blk).mine(start_nonce=0)
         self.transaction_queue = self.transaction_queue.diff(block.body)
         self.broadcast_new_block(block)
 
@@ -327,7 +367,15 @@ class MinerNode(ChainNode):
         if verify_status:
             self.txqueue.add_transaction(transaction)
             if self.can_mine:
+                self.ready_mine_new_block = True
                 self.mine_and_broadcast_block()
 
     def receive_block(self, block):
         raise NotImplementedError("Require to extend from chain node")
+
+
+
+node_registry = {
+    ChainNode.identifier(): ChainNode,
+    MinerNode.identifier(): MinerNode
+}

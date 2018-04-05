@@ -1,3 +1,4 @@
+import time
 import os
 
 def ensure_dir(dir):
@@ -7,3 +8,7 @@ def ensure_dir(dir):
 
 def int2bytes(integer):
     return str(integer).encode()
+
+
+def ts():
+    return time.time()

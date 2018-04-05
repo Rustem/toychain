@@ -239,13 +239,11 @@ class BasePeer(Factory, DeferredRequestMixin):
         self.peers_connection.pop(peer_node_id, None)
         self.peers.pop(peer_node_id, None)
 
-    def broadcast(self, msg_object, msg_type):
+    def broadcast(self, msg_object):
         """
         Broadcast message object to each known peer.
         :param msg_object: Message instance (Transaction, Block, etc.)
         :type msg_object: Message
-        :param msg_type: 3-chars description of Message instance
-        :type msg_type: str
         """
         msg_bytes = msg_object.serialize()
         for peer_id, peer_conn in self.peers_connection.items():
