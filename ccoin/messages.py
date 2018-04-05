@@ -66,6 +66,7 @@ class BaseMessage(ABC):
     def loads(bytes):
         return msgpack.unpackb(bytes, raw=False)
 
+
 class Transaction(BaseMessage):
     """Encapsulates transaction data structure and behaviour.
 
@@ -80,13 +81,14 @@ class Transaction(BaseMessage):
     """
     identifier = "TXN"
 
-    def __init__(self, number, from_, to=None, id=None, amount=0, data=None, signature=None):
+    def __init__(self, number, from_, to=None, id=None, amount=0, data=None, signature=None, time=None):
         self.id = id
         self.number = number
         self.from_ = from_
         self.to = to
         self.amount = amount
         self.data = data
+        self.time=time
         # RSA signature
         self.signature = signature
 
@@ -98,9 +100,14 @@ class Transaction(BaseMessage):
     def recipient(self):
         return self.to
 
+    @property
+    def nonce(self):
+        return self.number
+
     def generate_id(self):
         if self.id is None:
             self.id = self.get_hash()
+        self.time = time.time()
         return self.id
 
     def get_hash(self):
@@ -134,6 +141,7 @@ class Transaction(BaseMessage):
             "number": self.number,
             "to": self.to,
             "from": self.from_,
+            "time": self.time,
             "amount": self.amount,}
         if self.data is not None:
             data["data"] = self.data
@@ -147,6 +155,7 @@ class Transaction(BaseMessage):
                    number=data["number"],
                    to=data["to"],
                    from_=data["from"],
+                   time=data.get("time", None),
                    amount=data.get("amount", None),
                    data=data.get("data", None),
                    signature=data.get("signature", None),)
