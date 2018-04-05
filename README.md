@@ -20,9 +20,9 @@ Project is developed with twisted networking tools.
 9. Mine block with Proof-of-Authority (done)
 
 ## Current Todos
-1. Define Transaction pool
+1. Define Transaction pool (done)
 3. Load node with blockchain and genesis config (done)
-2. Aggregate transactions under transaction pool
+2. Aggregate transactions under transaction pool (doing)
 
 
  
