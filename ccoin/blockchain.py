@@ -180,7 +180,6 @@ class Blockchain(object):
         worldstate.from_genesis_block(genesis_block, commit=True)
         # 7. Let S_FINAL be S[n], but adding the block reward paid to the miner.
         hash_state = worldstate.hash_state
-        print(hash_state, genesis_block.hash_state, worldstate.calculate_hash())
         # 8. Check if the Merkle tree root of the state S_FINAL is equal to the final state root provided in the block header.
         # If it is, the block is valid; otherwise, it is not valid.
         if hash_state != genesis_block.hash_state:

@@ -124,16 +124,21 @@ class Transaction(BaseMessage):
 
     def sign(self, private_key):
         """Signs transaction with account’s secret key and returns signature. Sets signature and sender's public key"""
-        msg_bytes = self.serialize()
+        data = self.to_dict()
+        data.pop("signature", None)
+        digest = hash_map(data, hex=False)
         if self.signature is None:
-            self.signature = sign(private_key, msg_bytes)
+            self.signature = sign(private_key, digest)
         return self.signature
 
     def verify(self):
         """Verifies signatures of transaction"""
         if self.signature is None:
             raise TransactionNotVerifiable(self)
-        if verify(self.signature, self.serialize(), self.from_):
+        data = self.to_dict()
+        data.pop("signature", None)
+        digest = hash_map(data, hex=False)
+        if verify(self.signature, digest, self.from_):
             return
         raise TransactionBadSignature(self)
 

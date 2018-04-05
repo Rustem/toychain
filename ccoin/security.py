@@ -92,6 +92,6 @@ def hash_message(message_bytes, hex=True):
     return binascii.hexlify(digest).decode()
 
 
-def hash_map(data):
+def hash_map(data, hex=True):
     msg_bytes = msgpack.packb(sorted(data.items()))
-    return hash_message(msg_bytes)
+    return hash_message(msg_bytes, hex=hex)

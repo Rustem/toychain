@@ -193,7 +193,6 @@ class WorldState(object):
         if not concat:
             return
         concat_bytes = b"|".join(concat)
-        print(concat_bytes, "STATE HASH")
         return hash_message(concat_bytes)
 
     def make_txn(self, from_, to, command=None, amount=None):

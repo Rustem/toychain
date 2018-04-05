@@ -266,7 +266,6 @@ class ChainNode(BasePeer):
         :return: transaction reference
         :rtype: Transaction
         """
-        print(from_, to)
         txn = self.state.make_txn(from_, to, command=command, amount=amount)
         return txn
 
@@ -282,6 +281,7 @@ class ChainNode(BasePeer):
         txn_id = transaction.generate_id()
         # 2. sign transaction by sender's private key (ready to be sent)
         transaction.sign(self.account.private_key)
+        print("Transaction created", transaction.signature)
         # 3. relay it to the network
         self.broadcast(transaction)
         return txn_id
@@ -309,7 +309,6 @@ class MinerNode(ChainNode):
 
     def on_change_fsm_state(self, old_fsm_state, new_fsm_state):
         super().on_change_fsm_state(old_fsm_state, new_fsm_state)
-        print("there", self.can_mine)
         if new_fsm_state == settings.READY_STATE and self.can_mine:
             log.msg("Ready mine new blocks!!!")
             self.candidate_block_loop_chk.start(settings.NEW_BLOCK_INTERVAL_CHECK)
@@ -371,7 +370,7 @@ class MinerNode(ChainNode):
         verify_status = super().receive_transaction(transaction)
         if verify_status:
             self.txqueue.add_transaction(transaction)
-            log.msg("RECEIVED TX TO QUEUE: %s")
+            log.msg("RECEIVED TX TO QUEUE: %s" % len(self.txqueue))
             if self.can_mine:
                 self.ready_mine_new_block = True
                 self.mine_and_broadcast_block()
