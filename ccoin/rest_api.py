@@ -51,21 +51,34 @@ class NodeResource(JSONP2PRelayResource):
 
 
 class TransactionManageResource(JSONP2PRelayResource):
-    isLeaf = True
+    isLeaf = False
+
+    txn_id = None
+
+    def getChild(self, path, request):
+        if path:
+            self.txn_id = path.decode()
+        return self
 
     def render_POST(self, request):
-        data = json.loads(request.content.getvalue().decode())
-        txn = self.node.make_transfer_txn(data["sendto_address"], data["amount"])
-        txn_id = self.node.relay_txn(txn)
-        print("TransactionId", txn_id)
-        return txn.to_dict()
+        print(self.txn_id)
+        if not self.txn_id:
+            data = json.loads(request.content.getvalue().decode())
+            txn = self.node.make_transfer_txn(data["sendto_address"], data["amount"])
+            txn_id = self.node.relay_txn(txn)
+            print("TransactionId", txn_id)
+            return txn.to_dict()
+        else:
+            assert self.txn_id is not None, "Pass transaction id parameter"
+            data = json.loads(request.content.getvalue().decode())
+            txn = self.node.get_txn_info(self.txn_id, data["block_number"])
+            return txn and txn.to_dict() or None
 
 
 class BlockManageResource(JSONP2PRelayResource):
     isLeaf = False
 
     def getChild(self, path, request):
-        print(path, path.isdigit())
         if path == b'cnt':
             return BlockCountResource(self.node)
         elif path.isdigit():

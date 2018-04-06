@@ -260,6 +260,16 @@ class ChainNode(BasePeer):
     def get_block_count(self):
         return self.chain.height
 
+    def get_txn_info(self, txn_id, block_number=None):
+        if block_number is None:
+            block_number = self.chain.height
+        block = self.chain.get_block(block_number)
+        if block is None or not block.body:
+            return
+        for txn in block.body:
+            if txn.id == txn_id:
+                return txn
+
     def make_transfer_txn(self, sendto_address, amount):
         """
         Creates spendable transaction.

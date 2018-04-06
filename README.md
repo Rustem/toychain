@@ -17,17 +17,16 @@ Project is developed with twisted networking tools.
 6. Relay block to the chain network (March 29, 2018) (done)
 7. Design World state (done)
 7. Apply block to the chain and world state (done)
-8. Apply transactions to the chain and world state (testing)
+8. Apply transactions to the chain and world state (done)
 9. Mine block with Proof-of-Authority (done)
-10. Finish API (doing)
+10. Design API (done)
+11. Sender can create many transactions (doing)
+12. Leader election among miners (very simple, but allows only one node to mine)
+13. Discovery service via http
+14. Deploy and check on two servers
 
 ## Current Todos
-1. Aggregate transactions under transaction pool (done)
-2. Start miner nodes with special option --node_type=validator (done)
-3. block generation loop check should be started after the chain is ready (done)
-4. API to send transactions (done)
-5. API to query a block count (doing)
-6. API to query a single block and return all its structure (doing)
+1. 
 
 
 
