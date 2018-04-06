@@ -57,6 +57,13 @@ class Peer(BasePeer):
 
 class ChainNode(BasePeer):
 
+    # TODO allow multiple transactions from one sender to be relayed to the network
+    # TODO for that we need to reflect current account's nonce
+    # TODO 1. once the peer is loaded current account nonce's is loaded from state
+    # TODO 2. whenever transaction is relayed to the network , correpsonding account's nonce is incremented
+    # TODO 3. when transaction is applied and included to the block, then nonce should be compared with greatest nonce known so far
+    # TODO 4. transaction pool should sort by nonce and addresses
+
     @staticmethod
     def identifier():
         return "basic"
@@ -289,11 +296,7 @@ class ChainNode(BasePeer):
 
 
 class MinerNode(ChainNode):
-
-    # TODO can mine should come during loading chain
-    # TODO async loop that periodically checks and generates new block
     # TODO leader election algorithm between miners
-    # TODO develop make_candidate_block
 
     @staticmethod
     def identifier():
