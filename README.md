@@ -26,8 +26,8 @@ Project is developed with twisted networking tools.
 2. Start miner nodes with special option --node_type=validator (done)
 3. block generation loop check should be started after the chain is ready (done)
 4. API to send transactions (done)
-5. API to query a block count
-6. API to query a single block and return all its structure
+5. API to query a block count (doing)
+6. API to query a single block and return all its structure (doing)
 
 
 

@@ -60,12 +60,47 @@ class TransactionManageResource(JSONP2PRelayResource):
         print("TransactionId", txn_id)
         return txn.to_dict()
 
+
+class BlockManageResource(JSONP2PRelayResource):
+    isLeaf = False
+
+    def getChild(self, path, request):
+        print(path, path.isdigit())
+        if path == b'cnt':
+            return BlockCountResource(self.node)
+        elif path.isdigit():
+            return BlockInfoResource(self.node, int(path))
+        return self
+
+
+class BlockInfoResource(JSONP2PRelayResource):
+    # blk/1/
+    isLeaf = True
+
+    def __init__(self, node, block_number):
+        super().__init__(node)
+        self.block_number = block_number
+
+    def render_GET(self, request):
+        block = self.node.get_block_info(self.block_number)
+        return block and block.to_dict() or None
+
+
+class BlockCountResource(JSONP2PRelayResource):
+    # blk/cnt/
+    isLeaf = True
+
+    def render_GET(self, request):
+        return self.node.get_block_count()
+
+
 def run_http_api(node, port, callback=None, errback=None):
     RestApi = RootResource(node)
     node_resource = NodeResource()
     RestApi.putChild(node.id.encode(), node_resource)
     # manage transaction resource
     node_resource.putChild(b"txn", TransactionManageResource())
+    node_resource.putChild(b"blk", BlockManageResource())
 
     site = server.Site(RestApi)
 

@@ -253,6 +253,13 @@ class ChainNode(BasePeer):
             # TODO move errors to err.log
             log.err(ex)
 
+    def get_block_info(self, block_number):
+        block = self.chain.get_block(block_number)
+        return block
+
+    def get_block_count(self):
+        return self.chain.height
+
     def make_transfer_txn(self, sendto_address, amount):
         """
         Creates spendable transaction.
