@@ -12,21 +12,43 @@ Project is developed with twisted networking tools.
 2. Define Block and Blockchain data structures (March 28, 2018) - done
 3. Run new node from Genesis Block (March 28, 2018) - done
 4. Aggregate Transactions under TransactionPool (March 28, 2018)
-5. Generate block from transactions under TransactionPool and commit block to blockchain (doing) 
+5. Generate block from transactions under TransactionPool (done) 
+6. Commit block to blockchain (testing) 
 6. Relay block to the chain network (March 29, 2018) (done)
 7. Design World state (done)
 7. Apply block to the chain and world state (done)
-8. Apply transactions to the chain and world state (not tested)
+8. Apply transactions to the chain and world state (testing)
 9. Mine block with Proof-of-Authority (done)
 10. Finish API (doing)
 
 ## Current Todos
 1. Aggregate transactions under transaction pool (done)
 2. Start miner nodes with special option --node_type=validator (done)
+3. block generation loop check should be started after the chain is ready
+2018-04-06T11:39:31+0600 [twisted.internet.defer#critical]
+	Traceback (most recent call last):
+	  File "/Users/rustem/projects/ToptalAcademy/FinalProject/CCoin/ccoin/chainnode.py", line 190, in change_fsm_state
+	    self.on_change_fsm_state(old_fsm_state, new_fsm_state)
+	  File "/Users/rustem/projects/ToptalAcademy/FinalProject/CCoin/ccoin/chainnode.py", line 316, in on_change_fsm_state
+	    self.candidate_block_loop_chk.start(settings.NEW_BLOCK_INTERVAL_CHECK)
+	  File "/Users/rustem/.virtualenvs/bchain-academy/lib/python3.5/site-packages/twisted/internet/task.py", line 194, in start
+	    self()
+	  File "/Users/rustem/.virtualenvs/bchain-academy/lib/python3.5/site-packages/twisted/internet/task.py", line 239, in __call__
+	    d = defer.maybeDeferred(self.f, *self.a, **self.kw)
+	--- <exception caught here> ---
+	  File "/Users/rustem/.virtualenvs/bchain-academy/lib/python3.5/site-packages/twisted/internet/defer.py", line 150, in maybeDeferred
+	    result = f(*args, **kw)
+	  File "/Users/rustem/projects/ToptalAcademy/FinalProject/CCoin/ccoin/chainnode.py", line 373, in mine_and_broadcast_block
+	    cand_blk = self.generate_candidate_block()
+	  File "/Users/rustem/projects/ToptalAcademy/FinalProject/CCoin/ccoin/chainnode.py", line 353, in generate_candidate_block
+	    if not self.maybe_new_block():
+	  File "/Users/rustem/projects/ToptalAcademy/FinalProject/CCoin/ccoin/chainnode.py", line 336, in maybe_new_block
+	    if len(self.txqueue) >= self.genesis_block.min_tx_bound:
+	builtins.AttributeError: 'NoneType' object has no attribute 'min_tx_bound'
+
 3. API to send transactions (done)
-4. API to check transaction pool size
-5. API to query a block count
-6. API to query a single block and return all its structure
+4. API to query a block count
+5. API to query a single block and return all its structure
 
 
 
