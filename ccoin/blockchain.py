@@ -160,7 +160,7 @@ class Blockchain(object):
             new_state_root = worldstate.commit()
             # 8. Check if the Merkle tree root of the state S_FINAL is equal to the final state root provided in the block header.
             # If it is, the block is valid; otherwise, it is not valid.
-            print(new_state_root, block.hash_state)
+            log.msg("Comparing state with actual and expected: %s<>%s" % (new_state_root, block.hash_state))
             if new_state_root != block.hash_state:
                 self.rollback_block(worldstate, block.number, prev_block_height)
                 raise BlockApplyException(block)
@@ -189,6 +189,8 @@ class Blockchain(object):
             self.rollback_block(worldstate, genesis_block.number, prev_block_height)
             raise BlockApplyException(genesis_block)
         genesis_block.set_hash_state(hash_state)
+        # set genesis block
+        self.genesis_block = genesis_block
         if self.new_head_cb:
             self.new_head_cb(genesis_block)
 

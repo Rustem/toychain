@@ -312,8 +312,8 @@ class MinerNode(ChainNode):
     def on_change_fsm_state(self, old_fsm_state, new_fsm_state):
         super().on_change_fsm_state(old_fsm_state, new_fsm_state)
         if new_fsm_state == settings.READY_STATE and self.can_mine:
-            log.msg("Ready mine new blocks!!!")
-            self.candidate_block_loop_chk.start(settings.NEW_BLOCK_INTERVAL_CHECK)
+            if not self.candidate_block_loop_chk.running:
+                self.candidate_block_loop_chk.start(settings.NEW_BLOCK_INTERVAL_CHECK)
 
     def load_chain(self):
         super().load_chain(new_head_cb=self.on_new_head)
@@ -326,7 +326,6 @@ class MinerNode(ChainNode):
         self.ready_mine_new_block = True
         self.latest_block_ts = block.time
         # In case mining node started without any data
-        print("CALLELD CALLLBACK")
         if isinstance(block, GenesisBlock):
             self.can_mine = block.can_mine(self.id)
             if self.can_mine:
@@ -355,7 +354,8 @@ class MinerNode(ChainNode):
             txqueue = deepcopy(self.txqueue)
             self.candidate_block, self.candidate_block_state = make_candidate_block(self.state,
                                                                                     self.chain,
-                                                                                    txqueue=txqueue)
+                                                                                    txqueue=txqueue,
+                                                                                    coinbase=self.id)
             self.ready_mine_new_block = False
             self.latest_block_ts = self.candidate_block.time
             log.msg("Built candidate block=%s with %s transactions" % (self.candidate_block.number,

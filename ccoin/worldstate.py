@@ -206,7 +206,6 @@ class WorldState(object):
         if not concat:
             return
         concat_bytes = b"|".join(concat)
-        print(concat_bytes)
         return hash_message(concat_bytes)
 
     def make_txn(self, from_, to, command=None, amount=None):
@@ -282,8 +281,8 @@ class WorldState(object):
         # Check is enough balance to spend
         if sender_state.balance - transaction.amount < 0:
            raise TransactionSenderIsOutOfCoins(transaction)
-        self.incr_nonce(transaction.sender, +1)
-        self.incr_balance(transaction.sender, -1 * transaction.amount)
-        self.incr_balance(transaction.recipient, -1 * transaction.amount)
+        self.incr_nonce(sender_state.address, +1)
+        self.incr_balance(sender_state.address, -1 * transaction.amount)
+        self.incr_balance(recipient_state.address, transaction.amount)
         # Debig/Credit
         self.commit()

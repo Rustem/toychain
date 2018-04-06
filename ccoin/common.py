@@ -23,7 +23,9 @@ def make_candidate_block(worldstate, chain, txqueue, coinbase=settings.BLANK_SHA
     add_transactions(temp_state, temp_block, txqueue)
     # 4 finalize with coinbase debit/credit
     temp_state.incr_balance(temp_block.coinbase, temp_block.reward)
-    temp_state.commit()
+    hash_state = temp_state.commit()
+    temp_block.hash_state = hash_state
+    log.msg("Candidate Block hash state %s" % hash_state)
     return temp_block, temp_state
 
 
