@@ -236,6 +236,7 @@ class ChainNode(BasePeer):
             log.msg("Downloaded %s blocks" % len(blocks))
         except defer.TimeoutError:
             log.msg("Timeout to download blocks")
+        self.change_fsm_state(ns.READY_STATE)
 
     def receive_block(self, block):
         try:
@@ -305,6 +306,7 @@ class MinerNode(ChainNode):
         self.ready_mine_new_block = kwargs.get("ready_mine_new_block", True)
         self.candidate_block = None
         self.candidate_block_state = None
+        self.latest_block_ts = None
         self.candidate_block_loop_chk = LoopingCall(self.mine_and_broadcast_block)
 
     def on_change_fsm_state(self, old_fsm_state, new_fsm_state):
@@ -319,9 +321,12 @@ class MinerNode(ChainNode):
             self.can_mine = self.chain.genesis_block.can_mine(self.id)
 
     def on_new_head(self, block):
-        self.txqueue = self.txqueue.diff(block.body)
+        if block.body:
+            self.txqueue = self.txqueue.diff(block.body)
         self.ready_mine_new_block = True
+        self.latest_block_ts = block.time
         # In case mining node started without any data
+        print("CALLELD CALLLBACK")
         if isinstance(block, GenesisBlock):
             self.can_mine = block.can_mine(self.id)
             if self.can_mine:
@@ -331,7 +336,9 @@ class MinerNode(ChainNode):
         if len(self.txqueue) >= self.genesis_block.min_tx_bound:
             # more than 10 transaction in resided the queue
             return True
-        elif ts() - self.chain.head.time >= self.genesis_block.interval:
+        if self.latest_block_ts is None:
+            self.latest_block_ts = self.chain.head.time
+        if ts() - self.latest_block_ts >= self.genesis_block.interval:
             # 10 minutes left from the last mined block
             return True
         return False
@@ -345,10 +352,14 @@ class MinerNode(ChainNode):
         if self.ready_mine_new_block:
             if not self.maybe_new_block():
                 return
-            self.ready_mine_new_block = False
             txqueue = deepcopy(self.txqueue)
-            self.candidate_block, self.candidate_block_state = make_candidate_block(
-                self.chain, txqueue=txqueue)
+            self.candidate_block, self.candidate_block_state = make_candidate_block(self.state,
+                                                                                    self.chain,
+                                                                                    txqueue=txqueue)
+            self.ready_mine_new_block = False
+            self.latest_block_ts = self.candidate_block.time
+            log.msg("Built candidate block=%s with %s transactions" % (self.candidate_block.number,
+                                                                       len(self.candidate_block.body)))
         return self.candidate_block
 
     def broadcast_new_block(self, block):
@@ -358,12 +369,13 @@ class MinerNode(ChainNode):
     def mine_and_broadcast_block(self):
         if not self.can_mine:
             return
+        self.ready_mine_new_block = True
         cand_blk = self.generate_candidate_block()
         if cand_blk is None:
             log.msg("New block is not ready to be generated.")
             return
         block = Miner(cand_blk).mine(start_nonce=0)
-        self.transaction_queue = self.transaction_queue.diff(block.body)
+        self.txqueue = self.txqueue.diff(block.body)
         self.broadcast_new_block(block)
 
     def receive_transaction(self, transaction):
@@ -372,7 +384,6 @@ class MinerNode(ChainNode):
             self.txqueue.add_transaction(transaction)
             log.msg("RECEIVED TX TO QUEUE: %s" % len(self.txqueue))
             if self.can_mine:
-                self.ready_mine_new_block = True
                 self.mine_and_broadcast_block()
 
     def receive_block(self, block):

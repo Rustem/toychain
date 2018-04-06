@@ -4,15 +4,15 @@
   "block_mining": {
     "interval": 600,
     "max_bound": 100,
-    "min_bound": 10,
+    "min_bound": 1,
     "reward": 100,
-    "difficulty": 5,
+    "difficulty": 4,
     "allow_empty": true,
     "placeholder_data": ["rnd", 15]
   },
   "max_peers": 0,
   "genesis_block": {
-    "difficulty": 4
+    "difficulty": 3
   },
   "alloc": {
     "34268774b426751444f6346517a72676631302f6": {

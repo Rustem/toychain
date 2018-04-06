@@ -1,7 +1,7 @@
 from ccoin.security import hash_message
 
 
-def proof_of_work(difficulty, mining_hash, start_nonce=0, rounds=100000):
+def proof_of_work(difficulty, mining_hash, start_nonce=0, rounds=10000000):
     """
     Simple hashimoto proof of work.
     :param difficulty: mining difficulty
@@ -16,11 +16,11 @@ def proof_of_work(difficulty, mining_hash, start_nonce=0, rounds=100000):
     pow_hash = None
     while isvalid is False and nonce <= rounds:
         concat_str = "%s%s" % (nonce + 1, mining_hash)
-        pow_hash = hash_message(concat_str.encode())
+        pow_hash = hash_message(concat_str.encode(), hex=True)
         isvalid = is_valid(difficulty, pow_hash)
         nonce += 1
         if nonce % 10000 == 0:
-            print(nonce, "attempts")
+            print(nonce, "attempts", mining_hash, difficulty, pow_hash)
     if isvalid:
         return nonce, pow_hash
     return None, None
@@ -69,7 +69,7 @@ class Miner(object):
         #           block_difficulty=self.block.difficulty)
         #
 
-    def mine(self, rounds=1000000000000, start_nonce=0):
+    def mine(self, rounds=10000000, start_nonce=0):
         """
         Mines block with simple pow algorithm based on hashimoto.
         :param rounds: max allowed rounds

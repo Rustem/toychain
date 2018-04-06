@@ -2,6 +2,7 @@ import plyvel
 import os
 from twisted.python import log
 from ccoin import settings
+from ccoin.common import generate_block_data
 from ccoin.exceptions import BlockChainViolated, BlockTimeError, BlockWrongDifficulty, \
     BlockWrongNumber, BlockWrongTransactionHash, BlockPoWFailed, TransactionApplyException, BlockApplyException, \
     MiningGenesisBlockFailed
@@ -27,7 +28,7 @@ class Blockchain(object):
         # load genesis block
         block_bytes = db.get(cls.to_key(settings.GENESIS_BLOCK_NUMBER))
         if not block_bytes:
-            return Blockchain(db, None, 0, None)
+            return Blockchain(db, None, 0, None, **kwargs)
         genesis_block = None
         if block_bytes:
             # Attention: blockchain is empty (even genesis block is not generated)
@@ -89,7 +90,7 @@ class Blockchain(object):
 
     def change_head(self, new_height):
         self.height = new_height
-        self.head = self.db.get(self.to_key(new_height))
+        self.head = Block.deserialize(self.db.get(self.to_key(new_height)))
         self.db.put(b"height", str(self.height).encode())
 
     def get_block(self, blk_number):
@@ -134,7 +135,7 @@ class Blockchain(object):
         if block.time <= self.head.time:
             raise BlockTimeError(block)
         # 3. Check that the block number, difficulty, transaction root are valid.
-        if NetworkConf["block_mining"]["difficulty"] != block.difficulty:
+        if self.genesis_block.mine_difficulty != block.difficulty:
             raise BlockWrongDifficulty(block)
         if block.number != self.head.number + 1:
             raise BlockWrongNumber(block)
@@ -155,16 +156,18 @@ class Blockchain(object):
             raise BlockApplyException(block)
         else:
             # 7. Let S_FINAL be S[n], but adding the block reward paid to the miner.
-            worldstate.incr_balance(block.coinbase, self.genesis_block.miner_reward)
-            new_state_root = worldstate.calculate_hash()
+            worldstate.incr_balance(block.coinbase, block.reward)
+            new_state_root = worldstate.commit()
             # 8. Check if the Merkle tree root of the state S_FINAL is equal to the final state root provided in the block header.
             # If it is, the block is valid; otherwise, it is not valid.
+            print(new_state_root, block.hash_state)
             if new_state_root != block.hash_state:
                 self.rollback_block(worldstate, block.number, prev_block_height)
                 raise BlockApplyException(block)
             block.set_hash_state(new_state_root)
             if self.new_head_cb:
                 self.new_head_cb(block)
+            log.msg("Applied new block %s . Current height is %s" % (block.number, self.height))
 
     def apply_genesis_block(self, genesis_block, worldstate):
         if genesis_block is None or genesis_block.number != 1:
@@ -214,14 +217,21 @@ class Blockchain(object):
         self.change_head(block.number)
         return worldstate.new_block(block.number)
 
-    def generate_block(self, transaction_pool):
-        """
-        Generates new block from a transaction pool, mines it and stores
-        :param transaction_pool:
-        :return: block
-        :rtype: Block
-        """
-        raise NotImplementedError("")
+    def create_candidate_block(self, coinbase):
+        number = self.height + 1
+        assert number > settings.GENESIS_BLOCK_NUMBER, "Genesis block should be defined differently"
+        parent = self.head
+        block = Block(number=number,
+                      hash_parent=parent.id,
+                      body=None,
+                      coinbase=coinbase,
+                      hash_state=self.head.hash_state,
+                      hash_txns=None,
+                      data=generate_block_data(self.genesis_block.blk_placeholder_config),
+                      reward=self.genesis_block.miner_reward,
+                      difficulty=self.genesis_block.mine_difficulty)
+        block.set_timestamp()
+        return block
 
     def mine_block(self, block):
         """

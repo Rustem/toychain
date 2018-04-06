@@ -99,8 +99,16 @@ class Transaction(BaseMessage):
         return self.from_
 
     @property
+    def sender_address(self):
+        return self.sender[115:155]
+
+    @property
     def recipient(self):
         return self.to
+
+    @property
+    def recipient_address(self):
+        return self.recipient[115:155]
 
     @property
     def nonce(self):
@@ -202,6 +210,12 @@ class TransactionList(object):
     def __iter__(self):
         return iter(self.txns)
 
+    def __len__(self):
+        return len(self.txns)
+
+    def append(self, txn):
+        self.txns.append(txn)
+
     def to_dict(self):
         rv = []
         for txn in self.txns:
@@ -265,6 +279,7 @@ class Block(BaseMessage):
 
     def set_transactions(self, txns):
         self.body = TransactionList(txns)
+        self.hash_txns = self.body.calc_hash()
 
     def get_transactions_hash(self):
         if not self.hash_txns:
@@ -297,7 +312,8 @@ class Block(BaseMessage):
         if blk_type not in blk_registry:
             raise MessageDeserializationException(cls.identifier, blk_type)
         kls = blk_registry.get(blk_type)
-        return kls.from_dict(kls.loads(bytes[3:]))
+        data = dict(kls.loads(bytes[3:]))
+        return kls.from_dict(data)
 
     def to_dict(self):
         data = {
@@ -394,8 +410,16 @@ class GenesisBlock(Block):
         return self.loaded_data["block_mining"]["reward"]
 
     @property
+    def mine_difficulty(self):
+        return self.loaded_data["block_mining"]["difficulty"]
+
+    @property
     def min_tx_bound(self):
         return self.loaded_data["block_mining"]["min_bound"]
+
+    @property
+    def blk_placeholder_config(self):
+        return self.loaded_data["block_mining"]["placeholder_data"]
 
     @property
     def interval(self):

@@ -127,8 +127,19 @@ class WorldState(object):
         """
         prev_block_height = self.height
         self.move_cursor(block_height)
-        self.copy_state(prev_block_height)
+        self.copy_state(prev_block_height, block_height)
         return prev_block_height
+
+    def new_candidate_block_state(self, temp_block):
+        """
+        Builds temporary state from current state and next block and returns instance to it
+        :param temp_block:
+        :type temp_block: ccoin.messages.Block
+        :return:
+        """
+        state = WorldState(self.db, self.height, hash_state=self.hash_state)
+        state.new_block(temp_block.number)
+        return state
 
     def rollback_block(self, move_to_block_height):
         """
@@ -152,12 +163,14 @@ class WorldState(object):
             for k in it:
                 wb.delete(k)
 
-    def copy_state(self, block_height):
+    def copy_state(self, block_height, new_block_height):
         """Copies state from `block_height` to active `block_height` in write-batch transaction mode."""
         range_key = self.key_prefix(block_height)
+        new_range_key = self.key_prefix(new_block_height)
         with self.db.iterator(prefix=range_key) as it, self.db.write_batch(transaction=True) as wb:
             for k, v in it:
-                wb.put(k, v)
+                new_k = k.replace(range_key, new_range_key)
+                wb.put(new_k, v)
 
     def move_cursor(self, new_height):
         self.height = new_height
@@ -193,6 +206,7 @@ class WorldState(object):
         if not concat:
             return
         concat_bytes = b"|".join(concat)
+        print(concat_bytes)
         return hash_message(concat_bytes)
 
     def make_txn(self, from_, to, command=None, amount=None):
@@ -231,15 +245,13 @@ class WorldState(object):
         account_state.nonce = nonce
 
     def commit(self):
-        if not self.cache:
-            # nothing to cache
-            # TODO may be log here
-            return
-        with self.db.write_batch(transaction=True) as wb:
-            for account_addr, account_state in self.cache.items():
-                account_key = self.to_key(self.height, account_addr)
-                wb.put(account_key, account_state.serialize())
+        if self.cache:
+            with self.db.write_batch(transaction=True) as wb:
+                for account_addr, account_state in self.cache.items():
+                    account_key = self.to_key(self.height, account_addr)
+                    wb.put(account_key, account_state.serialize())
         self.set_state_hash(self.calculate_hash())
+        return self.hash_state
 
     def apply_txns(self, txn_list):
         """
@@ -263,8 +275,8 @@ class WorldState(object):
         # in the sender's account. If not, return an error
         transaction.verify()
         # Check nonce matches the sender's account
-        sender_state = self.account_state(transaction.sender)
-        recipient_state = self.account_state(transaction.recipient, create=True)
+        sender_state = self.account_state(transaction.sender_address)
+        recipient_state = self.account_state(transaction.recipient_address, create=True)
         if not sender_state or not (sender_state.nonce == transaction.number):
             raise TransactionBadNonce(transaction)
         # Check is enough balance to spend

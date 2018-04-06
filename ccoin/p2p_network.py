@@ -12,7 +12,7 @@ from ccoin.base import DeferredRequestMixin
 from ccoin.discovery import PeerDiscoveryService
 from ccoin.exceptions import NotSupportedMessage
 from ccoin.messages import Transaction, HelloMessage, HelloAckMessage, RequestBlockHeight, ResponseBlockHeight, \
-    RequestBlockList, ResponseBlockList
+    RequestBlockList, ResponseBlockList, Block
 from ccoin.peer_info import PeerInfo
 from ccoin.rest_api import run_http_api
 
@@ -275,7 +275,7 @@ class BasePeer(Factory, DeferredRequestMixin):
             self.receive_response_blocks(obj, sender)
             return
         elif msg_type == "BLK":
-            obj = None #Block.deserialize(msg)
+            obj = Block.deserialize(msg)
             self.receive_block(obj)
             return
         else:
