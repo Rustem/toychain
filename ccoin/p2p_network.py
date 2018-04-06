@@ -246,8 +246,12 @@ class BasePeer(Factory, DeferredRequestMixin):
         :type msg_object: Message
         """
         msg_bytes = msg_object.serialize()
+        include_self = False
         for peer_id, peer_conn in self.peers_connection.items():
             peer_conn.sendString(msg_bytes)
+            if not include_self:
+                peer_conn.stringReceived(msg_bytes)
+                include_self = True
 
     def send(self, peer_address, msg_object, msg_type):
         if peer_address in self.peers_connection:

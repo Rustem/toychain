@@ -4,7 +4,7 @@
   "block_mining": {
     "interval": 600,
     "max_bound": 100,
-    "min_bound": 1,
+    "min_bound": 3,
     "reward": 100,
     "difficulty": 4,
     "allow_empty": true,
