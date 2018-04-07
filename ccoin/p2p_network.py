@@ -252,7 +252,7 @@ class BasePeer(Factory, DeferredRequestMixin):
         :return:
         """
         if peer.id not in self.peers_connection:
-            point = TCP4ClientEndpoint(reactor, peer.ip, peer.port)
+            point = TCP4ClientEndpoint(reactor, peer.ip, peer.port, timeout=settings.HTTP_REQUEST_TIMEOUT)
             d = connectProtocol(point, BasePeerConnection(self))
             d.addCallback(self.got_protocol)
             d.addErrback(self.fail_got_protocol, peer.id)
