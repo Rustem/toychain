@@ -61,10 +61,9 @@ class TransactionManageResource(JSONP2PRelayResource):
         return self
 
     def render_POST(self, request):
-        print(self.txn_id)
         if not self.txn_id:
             data = json.loads(request.content.getvalue().decode())
-            txn = self.node.make_transfer_txn(data["sendto_address"], data["amount"])
+            txn = self.node.make_transfer_txn(data["sendto_address"], data["amount"], data=data.get("data", None))
             txn_id = self.node.relay_txn(txn)
             print("TransactionId", txn_id)
             return txn.to_dict()

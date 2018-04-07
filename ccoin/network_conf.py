@@ -16,6 +16,9 @@ NetworkConf = LazyDict({
         "allow_empty": True, # allow empty block
         "placeholder_data": ["rnd", 15] # if empty block get mined it will be extended with extra 15 bits of data
     },
+    "transaction": {
+        "placeholder_data": ["rnd", 15] # if data is not provided for transaction it will be provided by default with this configuration
+    },
     "max_peers": 0,
         "genesis_block": {
         "coinbase": "", # coinbase address

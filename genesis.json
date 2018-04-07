@@ -10,6 +10,9 @@
     "allow_empty": true,
     "placeholder_data": ["rnd", 15]
   },
+  "transaction": {
+    "placeholder_data": ["rnd", 15]
+  },
   "max_peers": 0,
   "genesis_block": {
     "difficulty": 3

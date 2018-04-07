@@ -20,9 +20,9 @@ Project is developed with twisted networking tools.
 8. Apply transactions to the chain and world state (done)
 9. Mine block with Proof-of-Authority (done)
 10. Design API (done)
-11. Sender can create many transactions (doing)
+11. Sender can create many transactions (done)
 12. Leader election among miners (very simple, but allows only one node to mine)
-13. Discovery service via http
+13. Discovery service via http (doing)
 14. Deploy and check on two servers
 
 ## Current Todos

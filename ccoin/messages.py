@@ -388,6 +388,7 @@ class GenesisBlock(Block):
             "network_id": config["network_id"],
             "max_peers": config["max_peers"],
             "genesis_block": config["genesis_block"],
+            "transaction": config["transaction"],
             "alloc": config["alloc"]}
         json_data = json.dumps(data)
         genesis_block = cls(number=settings.GENESIS_BLOCK_NUMBER,
@@ -422,6 +423,10 @@ class GenesisBlock(Block):
     @property
     def blk_placeholder_config(self):
         return self.loaded_data["block_mining"]["placeholder_data"]
+
+    @property
+    def txn_placeholder_config(self):
+        return self.loaded_data["transaction"]["placeholder_data"]
 
     @property
     def interval(self):

@@ -9,7 +9,7 @@ from ccoin import settings
 from ccoin.accounts import Account
 from ccoin.app_conf import AppConfig
 from ccoin.blockchain import Blockchain
-from ccoin.common import make_candidate_block
+from ccoin.common import make_candidate_block, generate_block_data
 from ccoin.exceptions import AccountDoesNotExist, TransactionApplyException, BlockApplyException
 from ccoin.messages import RequestBlockHeight, ResponseBlockHeight, RequestBlockList, ResponseBlockList, GenesisBlock
 from ccoin.p2p_network import BasePeer
@@ -280,7 +280,7 @@ class ChainNode(BasePeer):
             if txn.id == txn_id:
                 return txn
 
-    def make_transfer_txn(self, sendto_address, amount):
+    def make_transfer_txn(self, sendto_address, amount, data=None):
         """
         Creates spendable transaction.
         :param sendto_address: public key of recipient
@@ -288,9 +288,9 @@ class ChainNode(BasePeer):
         :return:
         :rtype: ccoin.messages.Transaction
         """
-        return self.make_txn(self.account.public_key, sendto_address, amount=amount)
+        return self.make_txn(self.account.public_key, sendto_address, amount=amount, data=data)
 
-    def make_txn(self, from_, to, command=None, amount=None):
+    def make_txn(self, from_, to, data=None, amount=None):
         """
         :param command: command details
         :type command: str
@@ -302,7 +302,9 @@ class ChainNode(BasePeer):
         :rtype: Transaction
         """
         self.account.increment_nonce()
-        txn = self.state.make_txn(from_, to, command=command, amount=amount, nonce=self.account.nonce)
+        if data is None:
+            data = generate_block_data(self.genesis_block.txn_placeholder_config)
+        txn = self.state.make_txn(from_, to, data=data, amount=amount, nonce=self.account.nonce)
         return txn
 
     def relay_txn(self, transaction):

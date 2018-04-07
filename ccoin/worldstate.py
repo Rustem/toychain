@@ -2,7 +2,6 @@ import plyvel
 import json
 import os
 from ccoin.accounts import Account
-from ccoin.app_conf import AppConfig
 from ccoin.exceptions import TransactionBadNonce, TransactionSenderIsOutOfCoins, SenderStateDoesNotExist
 from ccoin.messages import Transaction
 from ccoin.security import hash_message
@@ -224,7 +223,7 @@ class WorldState(object):
         concat_bytes = b"|".join(concat)
         return hash_message(concat_bytes)
 
-    def make_txn(self, from_, to, command=None, amount=None, nonce=0):
+    def make_txn(self, from_, to, data=None, amount=None, nonce=0):
         """
         :param command: command details
         :type command: str
@@ -240,7 +239,7 @@ class WorldState(object):
         sender_state = self.account_state(sender.address)
         if sender_state is None:
             raise SenderStateDoesNotExist(from_)
-        txn = Transaction(nonce, from_, to=to, amount=amount, data=command)
+        txn = Transaction(nonce, from_, to=to, amount=amount, data=data)
         return txn
 
     def set_balance(self, addr, balance):
