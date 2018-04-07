@@ -22,7 +22,7 @@ Project is developed with twisted networking tools.
 10. Design API (done)
 11. Sender can create many transactions (done)
 12. Leader election among miners (very simple, but allows only one node to mine)
-13. Discovery service via http (doing)
+13. Discovery service via http (done)
 14. Deploy and check on two servers (doing)
 
 
@@ -163,10 +163,60 @@ twistd -n initc --genesis=genesis.json
 Genesis block has been mined: nonce=4000, pow_hash=0000b900ae7c1b52d09ed50b2b912c0d5bba9434ac10aa6f8b8998288a49d644
 ``` 
 
-3. Finally, you can start blockchain nodes with by running a special service called `cnode`:
+3. After that you have to start simple discovery service so that peers can connect to each other and 
+bootstrap initial network. By default discovery service started at port 4444 and listen on all interfaces.
+You can start it as daemon using discovery service as simple as below: 
 
 ```bash
-twistd --pidfile=twistd_1.pid --nodaemon cnode -c ccoin.json
+twistd discovery -p 4444 -h 0.0.0.0
+```
+
+and test that 4444 port is opened with telnet:
+
+```bash
+telnet 127.0.0.1 4444
+```
+
+4. Finally, you can start blockchain nodes by running a special service called `cnode`. It comes with 
+few options to be passed on startup:
+
+```bash
+Usage: twistd [options] cnode [options]
+Options:
+  -c, --config=     Application config file [default: ccoin.json]
+      --help        Display this help and exit.
+  -p, --port=       Port number [default: 0]
+  -t, --node_type=  Node type [default: basic]
+```
+
+Make sure that application config file is properly setup with address and discovery service information:
+
+```json
+{
+  "app": {
+    "base_path": "/Users/rustem/.ccoin"
+  },
+  "client": {
+    "account_address": "34268774b426751444e55786d594e46505459325"
+  },
+  "discovery_service": {
+      "host": "127.0.0.1",
+      "port": 4444,
+      "proto": "http"
+  }
+}
+```
+
+If you want to start your node as miner, use `-t validator`:
+
+```bash
+twistd --pidfile=twistd_2.pid --nodaemon cnode -c ccoin_miner_2.json -t validator
+``` 
+
+Otherwise you can start it as simple node that can relay transactions into the network:
+
+```bash
+twistd --pidfile=twistd_1.pid --nodaemon cnode -c ccoin.json -t basic
 ```
 
 If everything is created successfully you will be able to see a log similar to the one below:
