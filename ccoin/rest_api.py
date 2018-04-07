@@ -78,7 +78,6 @@ class BlockManageResource(JSONP2PRelayResource):
     isLeaf = False
 
     def getChild(self, path, request):
-        print(path, path == b'cnt')
         if path == b'cnt':
             return BlockCountResource(self.node)
         elif path.isdigit():

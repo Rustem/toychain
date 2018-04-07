@@ -376,7 +376,6 @@ class MinerNode(ChainNode):
     def broadcast_leader_election(self):
         msg = LeaderRequestMessage(self.id)
         miner_connections = self.miner_connections
-        print("Miner connections", miner_connections)
         if not miner_connections:
             self.leader_node = self.id
             print("No miner connections, I am leader")
