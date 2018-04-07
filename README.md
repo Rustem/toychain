@@ -6,9 +6,7 @@ of Toptal's Blockchain Academy.
 Project is developed with twisted networking tools.
 
 ## Remaining Todos
-1. Signing block with miner's private key (doing)
-2. Leader election among miners (very simple, but allows only one node to mine) (done)
-3. Deploy and check on two servers (doing)
+1. Deploy and check on two servers (doing)
 
 
 ## Features
