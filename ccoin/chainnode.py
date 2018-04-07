@@ -396,7 +396,8 @@ class MinerNode(ChainNode):
     def load_chain(self):
         super().load_chain(new_head_cb=self.on_new_head)
         if self.chain.initialized():
-            self.elect_leader()
+            pass
+            # self.elect_leader()
 
     @defer.inlineCallbacks
     def elect_leader(self):

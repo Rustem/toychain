@@ -73,6 +73,23 @@ python setup.py install
 ```bash
 export PYTHONPATH="${PYTHONPATH}:./"
 ```
+1. Create you configuration file e.g. `ccoin.json`:
+
+```bash
+{
+  "app": {
+    "base_path": "${BASE_DIRECTORY}/.ccoin"
+  },
+  "client": {
+    "account_address": ""
+  },
+  "discovery_service": {
+      "host": "127.0.0.1",
+      "port": 4444,
+      "proto": "http"
+  }
+}
+```
 
 1. All communication with application is handled using microservices (a.k.a twisted plugins). In order to run
 blockchain node, firstly it is necessary to create account with generated keypair:
