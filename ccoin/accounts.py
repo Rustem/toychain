@@ -30,6 +30,7 @@ class Account(object):
         self.public_key = public_key
         self.address = self.public_key[115:155]
         self.private_key = None
+        self.nonce = -1
 
     @staticmethod
     def private_key_path():
@@ -40,6 +41,13 @@ class Account(object):
     def public_key_path():
         join = AppConfig["pj"]
         return join(AppConfig["key_dir"], "id_rsa.pub")
+
+    def set_nonce(self, nonce):
+        self.nonce = nonce
+
+    def increment_nonce(self, val=1):
+        assert val > 0, "nonce should be greater than zero"
+        self.nonce += val
 
     def load_private_key(self):
         if not self.private_key and AppConfig["key_dir"]:

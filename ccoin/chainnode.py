@@ -59,10 +59,7 @@ class ChainNode(BasePeer):
 
     # TODO allow multiple transactions from one sender to be relayed to the network
     # TODO for that we need to reflect current account's nonce
-    # TODO 1. once the peer is loaded current account nonce's is loaded from state
-    # TODO 2. whenever transaction is relayed to the network , correpsonding account's nonce is incremented
-    # TODO 3. when transaction is applied and included to the block, then nonce should be compared with greatest nonce known so far
-    # TODO 4. transaction pool should sort by nonce and addresses
+    # TODO 3. transaction pool should sort by nonce and addresses
 
     @staticmethod
     def identifier():
@@ -107,6 +104,10 @@ class ChainNode(BasePeer):
         if not self.chain:
             return
         return self.chain.genesis_block
+
+    @property
+    def current_nonce(self):
+        return self.account.nonce
 
     def load_account(self):
         self.account = Account.fromConfig()
@@ -198,7 +199,12 @@ class ChainNode(BasePeer):
         log.msg("Node state changed from=%s to=%s" % (old_fsm_state, new_fsm_state))
 
     def on_change_fsm_state(self, old_fsm_state, new_fsm_state):
-        pass
+        if new_fsm_state == settings.READY_STATE:
+            # once the peer is loaded current account nonce's is loaded from state
+            account_state = self.state.account_state(self.account.address)
+            if account_state is None:
+                return
+            self.account.set_nonce(account_state.nonce)
 
     def receive_transaction(self, transaction):
         try:
@@ -255,7 +261,11 @@ class ChainNode(BasePeer):
 
     def get_block_info(self, block_number):
         block = self.chain.get_block(block_number)
-        return block
+        if not block:
+            return
+        block_data = block.to_dict()
+        block_data["state"] = self.state.all_accounts_state(block_number, to_dict=True)
+        return block_data
 
     def get_block_count(self):
         return self.chain.height
@@ -291,7 +301,8 @@ class ChainNode(BasePeer):
         :return: transaction reference
         :rtype: Transaction
         """
-        txn = self.state.make_txn(from_, to, command=command, amount=amount)
+        self.account.increment_nonce()
+        txn = self.state.make_txn(from_, to, command=command, amount=amount, nonce=self.account.nonce)
         return txn
 
     def relay_txn(self, transaction):

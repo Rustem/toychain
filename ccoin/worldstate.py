@@ -175,6 +175,22 @@ class WorldState(object):
     def move_cursor(self, new_height):
         self.height = new_height
 
+    def all_accounts_state(self, block_number, create=False, to_dict=False):
+        range_key = self.key_prefix(block_number)
+        rv = {}
+        with self.db.iterator(prefix=range_key) as it:
+            for k, v in it:
+                if k in self.SPECIAL_KEYS:
+                    continue
+                account_state = AccountState.deserialize(v)
+                if to_dict:
+                    account_state = account_state.to_dict()
+                    rv[account_state["address"]] = account_state
+                else:
+                    rv[account_state.address] = account_state
+
+        return rv
+
     def account_state(self, account_addr, create=False):
         """
         :param account_addr:
@@ -208,7 +224,7 @@ class WorldState(object):
         concat_bytes = b"|".join(concat)
         return hash_message(concat_bytes)
 
-    def make_txn(self, from_, to, command=None, amount=None):
+    def make_txn(self, from_, to, command=None, amount=None, nonce=0):
         """
         :param command: command details
         :type command: str
@@ -224,7 +240,7 @@ class WorldState(object):
         sender_state = self.account_state(sender.address)
         if sender_state is None:
             raise SenderStateDoesNotExist(from_)
-        txn = Transaction(sender_state.nonce, from_, to=to, amount=amount, data=command)
+        txn = Transaction(nonce, from_, to=to, amount=amount, data=command)
         return txn
 
     def set_balance(self, addr, balance):
@@ -276,12 +292,13 @@ class WorldState(object):
         # Check nonce matches the sender's account
         sender_state = self.account_state(transaction.sender_address)
         recipient_state = self.account_state(transaction.recipient_address, create=True)
-        if not sender_state or not (sender_state.nonce == transaction.number):
+        if not sender_state or not (transaction.nonce > sender_state.nonce):
+            # @ivan.voras "The miner essentially accepts all valid tx with nonce greater than it already has recorded for the address."
             raise TransactionBadNonce(transaction)
         # Check is enough balance to spend
         if sender_state.balance - transaction.amount < 0:
            raise TransactionSenderIsOutOfCoins(transaction)
-        self.incr_nonce(sender_state.address, +1)
+        self.set_nonce(sender_state.address, transaction.nonce)
         self.incr_balance(sender_state.address, -1 * transaction.amount)
         self.incr_balance(recipient_state.address, transaction.amount)
         # Debig/Credit

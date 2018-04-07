@@ -2,10 +2,53 @@ import binascii
 import heapq
 
 
+class PriorityValue(object):
+
+    def __lt__(self, other):
+        raise NotImplementedError("not implemented")
+
+
+class TransactionPriorityValue(PriorityValue):
+
+    def __init__(self, address, nonce):
+        self.address = address
+        self.nonce = nonce
+
+    def __lt__(self, other):
+        if self.address < other.address:
+            return True
+        if self.address == other.address:
+            if self.nonce < other.nonce:
+                return True
+            else:
+                return False
+        return False
+
+    def __gt__(self, other):
+        if self.address > other.address:
+            return True
+        if self.address == other.address:
+            if self.nonce > other.nonce:
+                return True
+            else:
+                return False
+        return False
+
+    def __eq__(self, other):
+        """
+        :param other:
+        :type other: TransactionPriorityValue
+        :return:
+        """
+        return self.address == other.address and self.nonce == other.nonce
+
+
+
 class OrderableTransaction(object):
     def __init__(self, prio, counter, tx):
         """
         :param prio:
+        :type: PriorityValue
         :param counter: monotonically increasing and unique for each transaction under queue
         :type counter:
         :param tx:
@@ -22,6 +65,7 @@ class OrderableTransaction(object):
             return self.counter < other.counter
         else:
             return False
+
 
 
 class TransactionQueue():
@@ -42,7 +86,7 @@ class TransactionQueue():
         :type tx: ccoin.messages.Transaction
         """
         # Priority : the lower the timestamp the more higher position transaction has under the queue
-        prio = tx.time
+        prio = TransactionPriorityValue(tx.sender, tx.nonce)
         heapq.heappush(self.txs, OrderableTransaction(prio, self.counter, tx))
         self.counter += 1
 
@@ -87,11 +131,11 @@ class TransactionQueue():
         return q
 
 
-def make_test_tx(t=1, data='', nonce=0, amount=0,):
+def make_test_tx(nonce=0, data='', amount=0, sender=b'\x35'):
     from ccoin.messages import Transaction
-    from_ = binascii.hexlify(b'\x35' * 20).decode()
+    from_ = binascii.hexlify(sender * 20).decode()
     to = binascii.hexlify(b'\x31' * 20).decode()
-    tx = Transaction(from_=from_, to=to, number=nonce, amount=amount, time=t, data=data)
+    tx = Transaction(from_=from_, to=to, number=nonce, amount=amount, data=data)
     tx.generate_id()
     return tx
 
@@ -103,31 +147,60 @@ from ccoin.transaction_queue import *
 test()
     """
     q = TransactionQueue()
-    params = [(100000, 81), (50000, 74), (40000, 65),
-              (60000, 39), (30000, 50), (30000, 50),
-              (30000, 80)]
-    operations = [(30000, 50),
-                  (30000, 50),
-                  (30000, 80),
-                  (40000, 65),
-                  (50000, 74),
-                  (60000, 39),
-                  (100000, 81),
-                  (None, None),
-                  ]
+    params = [100000, 50000, 40000, 60000, 30000, 30000, 30000]
+    operations = [30000,
+                  30000,
+                  30000,
+                  40000,
+                  50000,
+                  60000,
+                  100000,
+                  None,]
     # Add transactions to queue
     for param in params:
-        q.add_transaction(make_test_tx(t=param[0], nonce=param[1]))
+        q.add_transaction(make_test_tx(nonce=param))
     # Attempt pops from queue
-    for (expected_time, expected_nonce) in operations:
+    for expected_nonce in operations:
         tx = q.pop_transaction()
         if tx:
-            print(tx.time, tx.number, expected_time, expected_nonce)
-            assert (tx.time, tx.number) == (expected_time, expected_nonce)
+            assert tx.nonce == expected_nonce
         else:
-            assert expected_time is expected_nonce is None
+            assert expected_nonce is None
     print('Test successful')
 
+
+def test_with_different_address():
+    """
+from ccoin.transaction_queue import *
+test_with_different_address()
+    """
+    q = TransactionQueue()
+    params = [(100000, 123), (50000, 124), (40000, 123), (60000, 124), (30000, 125), (30000, 125), (30000, 123)]
+    operations = [
+        (30000, 123),
+        (40000, 123),
+        (100000, 123),
+        (50000, 124),
+        (60000, 124),
+        (30000, 125),
+        (30000, 125),
+    ]
+
+    def int2hex(integ):
+        return hex(integ).lstrip('0x').encode()
+
+    # Add transactions to queue
+    for param in params:
+        q.add_transaction(make_test_tx(nonce=param[0], sender=int2hex(param[1])))
+    # Attempt pops from queue
+    for expected_nonce, expected_addr in operations:
+        tx = q.pop_transaction()
+        if tx:
+            sender_prefix = binascii.hexlify(int2hex(expected_addr)).decode()
+            assert tx.nonce == expected_nonce and tx.sender.startswith(sender_prefix)
+        else:
+            assert expected_nonce is None
+    print('Test successful')
 
 def test_orderable_tx():
     """
