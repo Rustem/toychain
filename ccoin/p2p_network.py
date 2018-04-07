@@ -9,7 +9,7 @@ from twisted.protocols.basic import IntNStringReceiver
 from twisted.python import log
 
 from ccoin.base import DeferredRequestMixin
-from ccoin.discovery import PeerDiscoveryService
+from discovery import PeerDiscoveryService
 from ccoin.exceptions import NotSupportedMessage
 from ccoin.messages import Transaction, HelloMessage, HelloAckMessage, RequestBlockHeight, ResponseBlockHeight, \
     RequestBlockList, ResponseBlockList, Block

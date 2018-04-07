@@ -23,10 +23,28 @@ Project is developed with twisted networking tools.
 11. Sender can create many transactions (done)
 12. Leader election among miners (very simple, but allows only one node to mine)
 13. Discovery service via http (doing)
-14. Deploy and check on two servers
+14. Deploy and check on two servers (doing)
 
-## Current Todos
-1. 
+
+## Features
+1. Proof-of-Authority: Only a specific set of miners (authors) may mine (create) new blocks. The list of miners is specified in the genesis block and is static.
+2. Proof-of-Work: Miners uses HashCash proof-of-work to generate next block by enabling trustless network
+3. Basic coins: Each block rewards 100 coins to the miner.
+4. RSA Digital signature is used to sign and verify transactions
+5. Addresses are derived from RSA public key
+6. Etherium Accounting is used as transaction format (Transaction State Machine)
+7. There is a protection against double spending of coins using ~nonce~. FYI https://ethereum.stackexchange.com/questions/1172/how-does-the-ethereum-eth-accounting-system-work-and-prevent-double-spends
+8. Transactions can have additional data payload (Signed as part of the block)
+9. Blocks can have additional data payload (signed as part of the block)
+10. P2P Network is based on TCP network
+11. Each node exposes JSON HTTP API
+- Query the block count.
+- Query a single block and return all its transaction data and state.
+- Query a single transaction and return all its data.
+- Create a transaction and send it to be mined.
+12. SHA 256 is used as Hashing algorithm
+13. Base64 and hex format are used for storing binary data e.g. certificates
+
 
 
 
