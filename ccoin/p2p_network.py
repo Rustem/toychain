@@ -1,15 +1,19 @@
+import json
 import logging
 
 import struct
+import treq as treq
 from abc import abstractmethod
 from twisted.internet import reactor, defer
 from twisted.internet.endpoints import TCP4ClientEndpoint, connectProtocol
 from twisted.internet.protocol import connectionDone, Factory
 from twisted.protocols.basic import IntNStringReceiver
 from twisted.python import log
+from twisted.web.client import Agent
 
+from ccoin import settings
+from ccoin.app_conf import AppConfig
 from ccoin.base import DeferredRequestMixin
-from discovery import PeerDiscoveryService
 from ccoin.exceptions import NotSupportedMessage
 from ccoin.messages import Transaction, HelloMessage, HelloAckMessage, RequestBlockHeight, ResponseBlockHeight, \
     RequestBlockList, ResponseBlockList, Block
@@ -125,6 +129,50 @@ class BasePeerConnection(SimpleHandshakeProtocol):
             self.factory.message_callback(exc.msg_type, string, self)
 
 
+class DiscoveryServiceClient(object):
+
+    @defer.inlineCallbacks
+    def add_member(self, peer):
+        return (yield self.execute_request("add", peer=peer.to_dict()))
+
+    @defer.inlineCallbacks
+    def remove_member(self, peer_id):
+        return (yield self.execute_request("remove", peer_id=peer_id))
+
+    @defer.inlineCallbacks
+    def get_all_members(self):
+        peers = yield self.execute_request("get_all")
+        return [PeerInfo.from_dict(peer) for peer in peers]
+
+    @property
+    def headers(self):
+        return {
+            'Content-Type': [b'application/json']
+        }
+
+    @property
+    def url(self):
+        meta = AppConfig["discovery_service"]
+        return "%s://%s:%s" % (meta["proto"], meta["host"], meta["port"])
+
+    def make_body(self, data):
+        return json.dumps(data).encode('utf-8')
+
+    @defer.inlineCallbacks
+    def execute_request(self, command, **command_kwargs):
+        data = {"command": command}
+        data.update(command_kwargs)
+        try:
+            response = yield treq.post(self.url,
+                                       data=self.make_body(data),
+                                       timeout=settings.HTTP_REQUEST_TIMEOUT,
+                                       **self.headers)
+        except Exception as e:
+            log.err()
+        else:
+            json_result = yield treq.json_content(response)
+            return json_result
+
 class BasePeer(Factory, DeferredRequestMixin):
     """This class defines the logic of representing the peer and its connected peers consistently.
 
@@ -143,7 +191,7 @@ class BasePeer(Factory, DeferredRequestMixin):
         self.peers_connection = {}
         self.peers = {}
         # TODO make it as http client
-        self.discovery_service = PeerDiscoveryService()
+        self.discovery_service = DiscoveryServiceClient()
         self.message_callback = self.parse_msg
         self.reconnect_loop = None
 
@@ -171,15 +219,20 @@ class BasePeer(Factory, DeferredRequestMixin):
     def fail_got_protocol(failure, node_id):
         logger.debug('Peer not online (%s): peer node id = %s ', str(failure.type), node_id)
 
-    @defer.inlineCallbacks
-    def stopFactory(self):
-        yield self.discovery_service.remove_member(self.id)
+    def disconnect(self):
+        d = self.discovery_service.remove_member(self.id)
+        log.msg("Disconnecting Factory and releasing resources")
+        return d
+
+    # @defer.inlineCallbacks
+    # def stopFactory(self):
+    #     yield self.discovery_service.remove_member(self.id)
 
     @defer.inlineCallbacks
     def bootstrap_network(self):
         """Connect to each online peer if not yet connected."""
         if not self.peers:
-            for peer in (yield self.discovery_service.get_members()):
+            for peer in (yield self.discovery_service.get_all_members()):
                 self.peers[peer.id] = peer
         for peer in self.peers.values():
             if peer.id == self.id:
@@ -217,8 +270,7 @@ class BasePeer(Factory, DeferredRequestMixin):
         yield run_http_api(self, host.port + 1, callback=self.http_listen_ok, errback=log.err)
         # P2P Network bootstrap
         # TODO replace it with http discover client
-        yield self.discovery_service.initialize()
-        yield self.discovery_service.add_member(PeerInfo(host.host, host.port, self.id))
+        result = yield self.discovery_service.add_member(PeerInfo(host.host, host.port, self.id))
         yield self.bootstrap_network()
 
     def http_listen_ok(self, portObject):

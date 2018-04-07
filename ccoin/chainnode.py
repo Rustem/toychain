@@ -342,6 +342,12 @@ class MinerNode(ChainNode):
         self.latest_block_ts = None
         self.candidate_block_loop_chk = LoopingCall(self.mine_and_broadcast_block)
 
+    def disconnect(self):
+        d = super().disconnect()
+        if self.candidate_block_loop_chk and self.candidate_block_loop_chk.running:
+            self.candidate_block_loop_chk.stop()
+        return d
+
     def on_change_fsm_state(self, old_fsm_state, new_fsm_state):
         super().on_change_fsm_state(old_fsm_state, new_fsm_state)
         if new_fsm_state == settings.READY_STATE and self.can_mine:

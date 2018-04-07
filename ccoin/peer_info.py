@@ -21,3 +21,7 @@ class PeerInfo(object):
     def from_tuple(cls, peer_data):
         _id, ip, port = peer_data
         return PeerInfo(ip, port, _id)
+
+    @classmethod
+    def from_dict(cls, peer_data):
+        return PeerInfo(ip=peer_data["ip"], port=peer_data["port"], uuid=peer_data["id"])

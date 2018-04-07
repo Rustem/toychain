@@ -28,10 +28,10 @@ def configure(app_config=None):
         return
     global AppConfig
     if 'app' in app_config:
-        AppConfig = merge_deep(app_config['app'], AppConfig)
+        AppConfig = merge_deep(app_config.pop('app'), AppConfig)
     if 'client' in app_config:
-        AppConfig = merge_deep(app_config['client'], AppConfig)
-
+        AppConfig = merge_deep(app_config.pop('client'), AppConfig)
+    AppConfig = merge_deep(app_config, AppConfig)
 
 def configure_from_file(config_path):
     """

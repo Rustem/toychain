@@ -4,6 +4,8 @@ from twisted.plugin import IPlugin
 from twisted.internet import reactor, defer
 from twisted.internet.endpoints import TCP4ServerEndpoint
 from twisted.application import internet, service
+
+from ccoin.app_conf import AppConfig
 from ccoin.chainnode import node_registry
 from ccoin.exceptions import NodeCannotBeStartedException
 from twisted.plugins.base import Configurable
@@ -58,6 +60,7 @@ class StreamServerEndpointService(internet.StreamServerEndpointService):
     def stopService(self):
         if not self._waitingForPort:
             return
+        return self.factory.disconnect()
 
 
 @implementer(service.IServiceMaker, IPlugin)
@@ -91,5 +94,7 @@ class BlockchainNodeServiceMaker(Configurable):
     def get_node(self, options):
         node_type = options["node_type"]
         return node_registry[node_type]
+
+
 
 service_maker = BlockchainNodeServiceMaker()
