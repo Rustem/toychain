@@ -214,6 +214,10 @@ If everything is created successfully you will be able to see a log similar to t
 ``` 
 The log above clearly indicates that the node has run as p2p endpoint on port 63263 as well as http api endpoint on port 63264.  
 
+## Playing
+
+Blockchain Node HTTP API is described[here](docs)
+
 ## Author
 
 Made by Rustem Kamun a.k.a xepa4ep
