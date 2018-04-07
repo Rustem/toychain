@@ -14,9 +14,6 @@ Extracts block information with state from the blockchain storage.
 
 **Content examples**
 
-For a User with ID 1234 on the local database where that User has saved an
-email address and name information.
-
 ```json
 {
   "number": "[valid integer]",

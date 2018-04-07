@@ -19,7 +19,7 @@ Gets the number of blocks that are residing in the blockchain storage.
 [valid block count as integer]
 ```
 
-For a user with ID 4321 on the local database but no details have been set yet.
+Blockchain with height = 5 consists of exactly 5 blocks. 
 
 ```json
 5
