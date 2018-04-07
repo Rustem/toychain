@@ -52,8 +52,8 @@ class DeferredRequestMixin(object):
         self.cnt = cnt
         self.request_registry = {}
 
-    def broadcast_request(self, msg_object, raise_on_timeout=False):
-        conn_map = self.get_connections()
+    def broadcast_request(self, msg_object, connections=None, raise_on_timeout=False):
+        conn_map = connections or self.get_connections()
         if not conn_map:
             return
         defer_reqs = [self.send_request(addr,

@@ -125,6 +125,7 @@ class WorldState(object):
         :return:
         """
         prev_block_height = self.height
+        self.clear_block(block_height)
         self.move_cursor(block_height)
         self.copy_state(prev_block_height, block_height)
         return prev_block_height

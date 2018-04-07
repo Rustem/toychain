@@ -11,7 +11,8 @@ from ccoin.app_conf import AppConfig
 from ccoin.blockchain import Blockchain
 from ccoin.common import make_candidate_block, generate_block_data
 from ccoin.exceptions import AccountDoesNotExist, TransactionApplyException, BlockApplyException
-from ccoin.messages import RequestBlockHeight, ResponseBlockHeight, RequestBlockList, ResponseBlockList, GenesisBlock
+from ccoin.messages import RequestBlockHeight, ResponseBlockHeight, RequestBlockList, ResponseBlockList, GenesisBlock, \
+    LeaderRequestMessage, LeaderResponseMessage
 from ccoin.p2p_network import BasePeer
 from ccoin.pow import Miner
 from ccoin.transaction_queue import TransactionQueue
@@ -189,7 +190,7 @@ class ChainNode(BasePeer):
             else:
                 log.msg("Applied block = %s successfully" % blk.number)
                 log.msg("Changed state from boot to ready")
-                self.change_fsm_state(settings.READY_STATE)
+        self.change_fsm_state(settings.READY_STATE)
 
     def change_fsm_state(self, new_fsm_state):
         assert new_fsm_state in settings.NODE_STATES
@@ -341,6 +342,7 @@ class MinerNode(ChainNode):
         self.candidate_block_state = None
         self.latest_block_ts = None
         self.candidate_block_loop_chk = LoopingCall(self.mine_and_broadcast_block)
+        self.leader_node = None
 
     def disconnect(self):
         d = super().disconnect()
@@ -348,16 +350,79 @@ class MinerNode(ChainNode):
             self.candidate_block_loop_chk.stop()
         return d
 
+    @property
+    def miner_connections(self):
+        if not self.chain.genesis_block:
+            return
+        conns = {}
+        for conn_id, conn in self.peers_connection.items():
+            if self.chain.genesis_block.can_mine(conn.peer_node_id):
+                conns[conn_id] = conn
+        return conns
+
+    @defer.inlineCallbacks
     def on_change_fsm_state(self, old_fsm_state, new_fsm_state):
         super().on_change_fsm_state(old_fsm_state, new_fsm_state)
-        if new_fsm_state == settings.READY_STATE and self.can_mine:
-            if not self.candidate_block_loop_chk.running:
-                self.candidate_block_loop_chk.start(settings.NEW_BLOCK_INTERVAL_CHECK)
+        if new_fsm_state == settings.READY_STATE:
+            try:
+                yield self.elect_leader()
+            except:
+                log.err()
+            if self.can_mine:
+                if not self.candidate_block_loop_chk.running:
+                    self.candidate_block_loop_chk.start(settings.NEW_BLOCK_INTERVAL_CHECK)
+
+    @defer.inlineCallbacks
+    def broadcast_leader_election(self):
+        msg = LeaderRequestMessage(self.id)
+        miner_connections = self.miner_connections
+        print("Miner connections", miner_connections)
+        if not miner_connections:
+            self.leader_node = self.id
+            print("No miner connections, I am leader")
+            return self.leader_node
+        results = yield self.broadcast_request(msg,
+                                               connections=self.miner_connections,
+                                               raise_on_timeout=True)
+        max_address = self.id
+        for success, value in results:
+            if not success:
+                continue
+            msg = value
+            if msg.address > max_address:
+                max_address = msg.address
+        self.leader_node = max_address
+        return self.leader_node
 
     def load_chain(self):
         super().load_chain(new_head_cb=self.on_new_head)
         if self.chain.initialized():
-            self.can_mine = self.chain.genesis_block.can_mine(self.id)
+            self.elect_leader()
+
+    @defer.inlineCallbacks
+    def elect_leader(self):
+        log.msg("Electing new leader")
+        # soft lock and prevent cycle
+        can_mine = self.chain.genesis_block.can_mine(self.id)
+        # then participate in leader elections
+        if can_mine:
+            leader_addr = yield self.broadcast_leader_election()
+            self.can_mine = leader_addr == self.id
+            if self.can_mine:
+                if not self.candidate_block_loop_chk.running:
+                    self.candidate_block_loop_chk.start(settings.NEW_BLOCK_INTERVAL_CHECK)
+                log.msg("Ready mine new blocks!!!")
+            else:
+                log.msg("Lost leadership, New leader is %s" % leader_addr)
+                if self.candidate_block_loop_chk.running:
+                    self.candidate_block_loop_chk.stop()
+
+    def remove_peer(self, peer_node_id):
+        super().remove_peer(peer_node_id)
+        if self.leader_node == peer_node_id:
+            # leader has lost, let's try it again
+            log.msg("Leader has lost connection")
+            self.elect_leader()
 
     def on_new_head(self, block):
         if block.body:
@@ -366,9 +431,7 @@ class MinerNode(ChainNode):
         self.latest_block_ts = block.time
         # In case mining node started without any data
         if isinstance(block, GenesisBlock):
-            self.can_mine = block.can_mine(self.id)
-            if self.can_mine:
-                log.msg("Ready mine new blocks!!!")
+            self.elect_leader()
 
     def maybe_new_block(self):
         if len(self.txqueue) >= self.genesis_block.min_tx_bound:
@@ -416,6 +479,21 @@ class MinerNode(ChainNode):
         block = Miner(cand_blk).mine(start_nonce=0)
         self.txqueue = self.txqueue.diff(block.body)
         self.broadcast_new_block(block)
+
+    def receive_leader_election_request(self, request, sender):
+        response = LeaderResponseMessage(self.id)
+        response.request_id = request.request_id
+        sender.sendString(response.serialize())
+        # Reelect leader if necessary
+        if self.can_mine and request.address > self.id:
+            self.can_mine = False
+            if self.candidate_block_loop_chk.running:
+                self.candidate_block_loop_chk.stop()
+            self.elect_leader()
+
+
+    def receive_leader_election_response(self, request, sender):
+        self.receive_response(request)
 
     def receive_transaction(self, transaction):
         verify_status = super().receive_transaction(transaction)

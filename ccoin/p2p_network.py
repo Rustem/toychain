@@ -16,7 +16,7 @@ from ccoin.app_conf import AppConfig
 from ccoin.base import DeferredRequestMixin
 from ccoin.exceptions import NotSupportedMessage
 from ccoin.messages import Transaction, HelloMessage, HelloAckMessage, RequestBlockHeight, ResponseBlockHeight, \
-    RequestBlockList, ResponseBlockList, Block
+    RequestBlockList, ResponseBlockList, Block, LeaderRequestMessage, LeaderResponseMessage
 from ccoin.peer_info import PeerInfo
 from ccoin.rest_api import run_http_api
 
@@ -334,6 +334,14 @@ class BasePeer(Factory, DeferredRequestMixin):
             obj = Block.deserialize(msg)
             self.receive_block(obj)
             return
+        elif msg_type == "LDR":
+            obj = LeaderRequestMessage.deserialize(msg)
+            self.receive_leader_election_request(obj, sender)
+            return
+        elif msg_type == "ADR":
+            obj = LeaderResponseMessage.deserialize(msg)
+            self.receive_leader_election_response(obj, sender)
+            return
         else:
             raise NotImplementedError("Can\'t parse %s: %s" % (msg_type, msg))
 
@@ -386,6 +394,14 @@ class BasePeer(Factory, DeferredRequestMixin):
     @abstractmethod
     def receive_block(self, block):
         """Handles new block."""
+        pass
+
+    @abstractmethod
+    def receive_leader_election_request(self, msg, sender):
+        pass
+
+    @abstractmethod
+    def receive_leader_election_response(self, msg, sender):
         pass
 
 

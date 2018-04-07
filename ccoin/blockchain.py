@@ -130,6 +130,7 @@ class Blockchain(object):
         """
         # 1. Check if the previous block referenced exists and is valid.
         if self.head.id != block.hash_parent:
+            print(self.head.id, block.hash_parent, self.head.number, block.number)
             raise BlockChainViolated(block)
         # 2. Check that the timestamp of the block is greater than that of the referenced previous block
         if block.time <= self.head.time:

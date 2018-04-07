@@ -547,3 +547,19 @@ class ResponseBlockList(BaseRequestMessage):
         return ResponseBlockList(data["blocks"],
                                  data["address"],
                                  data["request_id"])
+
+
+class LeaderRequestMessage(BaseRequestMessage):
+    identifier = "LDR"
+
+    def to_dict(self):
+        return {"request_id": self.request_id,
+                "address": self.address,}
+
+    @classmethod
+    def from_dict(cls, data):
+        return LeaderRequestMessage(data["address"], data["request_id"])
+
+
+class LeaderResponseMessage(LeaderRequestMessage):
+    identifier = "ADR"
