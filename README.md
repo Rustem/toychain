@@ -5,25 +5,10 @@ of Toptal's Blockchain Academy.
 
 Project is developed with twisted networking tools.
 
-## Road Map
-1. Send and Receive Transactions (March 27, 2018) - done
-2. Verify signed transactions (March 27, 2018) - done
-3. Http API for relaying new transactions (March 27, 2018) - done
-2. Define Block and Blockchain data structures (March 28, 2018) - done
-3. Run new node from Genesis Block (March 28, 2018) - done
-4. Aggregate Transactions under TransactionPool (March 28, 2018)
-5. Generate block from transactions under TransactionPool (done) 
-6. Commit block to blockchain (testing) 
-6. Relay block to the chain network (March 29, 2018) (done)
-7. Design World state (done)
-7. Apply block to the chain and world state (done)
-8. Apply transactions to the chain and world state (done)
-9. Mine block with Proof-of-Authority (done)
-10. Design API (done)
-11. Sender can create many transactions (done)
-12. Leader election among miners (very simple, but allows only one node to mine)
-13. Discovery service via http (done)
-14. Deploy and check on two servers (doing)
+## Remaining Todos
+1. Signing block with miner's private key (doing)
+2. Leader election among miners (very simple, but allows only one node to mine)
+3. Deploy and check on two servers (doing)
 
 
 ## Features

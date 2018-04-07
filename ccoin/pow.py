@@ -1,3 +1,6 @@
+from twisted.python import log
+from random import randint
+from time import sleep
 from ccoin.security import hash_message
 
 
@@ -77,6 +80,9 @@ class Miner(object):
         :return: block
         :rtype: ccoin.messages.Block
         """
+        log.msg("Started Mining Block")
+        # This is done to decrease the probability of chain partitioning
+        sleep(randint(1, 10))
         blk = self.block
         nonce, pow_hash = proof_of_work(blk.difficulty, blk.mining_hash,
                                         start_nonce=start_nonce, rounds=rounds)
