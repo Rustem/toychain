@@ -7,7 +7,7 @@ Project is developed with twisted networking tools.
 
 ## Remaining Todos
 1. Signing block with miner's private key (doing)
-2. Leader election among miners (very simple, but allows only one node to mine)
+2. Leader election among miners (very simple, but allows only one node to mine) (done)
 3. Deploy and check on two servers (doing)
 
 
@@ -33,7 +33,8 @@ Project is developed with twisted networking tools.
 "HEADER+BODY", where HEADER is 3-char string and BODY is message pack serialized message.
 15. Apply transaction is done according to Etherium white/yellow papers
 16. Apply block is done according to Etherium/Bitcoin white papers
-17. Block syncronization between peers is done using simple Finite State Machine protocol 
+17. Block syncronization between peers is done using simple Finite State Machine protocol
+18. Leader election among miners: only one miner is allowed to mine the blocks at a certain time. 
 
 ## Requirements
 
