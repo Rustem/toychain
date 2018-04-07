@@ -44,21 +44,11 @@ Project is developed with twisted networking tools.
 - Create a transaction and send it to be mined.
 12. SHA 256 is used as Hashing algorithm
 13. Base64 and hex format are used for storing binary data e.g. certificates
-
-
-
-
-Callbacks todos:
- on_new_head() 
-    if miner should remove those transactions from the queue that came from new block head
-    
-```python
-def _on_new_head(self, block):
-    self.transaction_queue = self.transaction_queue.diff(block.transactions)
-    self._head_candidate_needs_updating = True
-    
-def fsm_state_changed()
-```
+14. Messages are packed to message pack binary protocol. Each message has the following format:
+"HEADER+BODY", where HEADER is 3-char string and BODY is message pack serialized message.
+15. Apply transaction is done according to Etherium white/yellow papers
+16. Apply block is done according to Etherium/Bitcoin white papers
+17. Block syncronization between peers is done using simple Finite State Machine protocol 
 
 ## Requirements
 
