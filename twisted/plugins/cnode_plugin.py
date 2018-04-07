@@ -14,6 +14,7 @@ from twisted.plugins.base import Configurable
 class Options(usage.Options):
 
     optParameters = [
+        ['host', 'h', '', 'Host IP'],
         ['port', 'p', 0, 'Port number'],
         ['node_type', 't', 'basic', 'Node type'],
         ['config', 'c', 'ccoin.json', 'Application config file']
@@ -83,7 +84,7 @@ class BlockchainNodeServiceMaker(Configurable):
         # p2p server listens by default on automatically selected port
         # use --port={port_number} to set certain port
         p2p_service = StreamServerEndpointService(
-            TCP4ServerEndpoint(reactor, int(options["port"])),
+            TCP4ServerEndpoint(reactor, int(options["port"]), interface=options['host']),
             node_factory,
             listen_precondition_checks=[(node_factory.load_account, True)],
             got_listen=[node_factory.p2p_listen_ok]
