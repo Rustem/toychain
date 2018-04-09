@@ -18,6 +18,7 @@ class PeerDiscoveryService(SharedDatabaseServiceMixin):
     """Simple discovery service"""
 
     def __init__(self):
+        super().__init__()
         self.ensure_check_done = False
 
     @defer.inlineCallbacks
