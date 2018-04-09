@@ -220,13 +220,16 @@ class ChainNode(BasePeer):
 
     @defer.inlineCallbacks
     def on_bootstrap_network_ok(self):
-        log.msg("Network bootstrap successfully accomplished. Ready for the next tasks")
         if self.fsm_state != ns.BOOT_STATE:
             return
         if not self.peers_connection and self.chain.initialized():
             self.change_fsm_state(ns.READY_STATE)
             return
         # # request blocks
+        if not self.peers_connection:
+            log.msg("Can't bootstrap network without peers. Wait for miners.")
+            return
+        log.msg("Network bootstrap successfully accomplished. Ready for the next tasks")
         block_results = yield self.broadcast_request_block_height()
         max_height = -1
         best_result = None
