@@ -82,7 +82,6 @@ class Miner(object):
         """
         log.msg("Started Mining Block")
         # This is done to decrease the probability of chain partitioning
-        sleep(randint(1, 10))
         blk = self.block
         nonce, pow_hash = proof_of_work(blk.difficulty, blk.mining_hash,
                                         start_nonce=start_nonce, rounds=rounds)
