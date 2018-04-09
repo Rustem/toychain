@@ -225,10 +225,10 @@ class ChainNode(BasePeer):
         if not self.peers_connection and self.chain.initialized():
             self.change_fsm_state(ns.READY_STATE)
             return
-        # # request blocks
         if not self.peers_connection:
             log.msg("Can't bootstrap network without peers. Wait for miners.")
             return
+        # # request blocks
         log.msg("Network bootstrap successfully accomplished. Ready for the next tasks")
         block_results = yield self.broadcast_request_block_height()
         max_height = -1
@@ -406,7 +406,7 @@ class MinerNode(ChainNode):
     def elect_leader(self):
         log.msg("Electing new leader")
         # soft lock and prevent cycle
-        if self.chain.initialized():
+        if not self.chain.initialized():
             log.msg("Can't elect leader, chain is not initialized yet.")
             return
         can_mine = self.chain.genesis_block.can_mine(self.id)
