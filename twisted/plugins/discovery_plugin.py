@@ -29,7 +29,8 @@ class SimpleDiscoveryServiceMaker(object):
         :return: endpoint service that runs a p2p server node
         :rtype: service.Service
         """
-        membership_resource = MembershipHttpResource(PeerDiscoveryService())
+        discovery_service = PeerDiscoveryService()
+        membership_resource = MembershipHttpResource(discovery_service)
         site = server.Site(membership_resource)
         p2p_service = internet.StreamServerEndpointService(
             TCP4ServerEndpoint(reactor, int(options["port"]), interface=options["host"]),

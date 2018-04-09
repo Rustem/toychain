@@ -17,9 +17,13 @@ from ccoin.peer_info import PeerInfo
 class PeerDiscoveryService(SharedDatabaseServiceMixin):
     """Simple discovery service"""
 
+    def __init__(self):
+        self.ensure_check_done = False
+
     @defer.inlineCallbacks
     def ensure_table(self):
         yield self.db.runInteraction(self.exec_create_table)
+        self.ensure_check_done = True
 
     @staticmethod
     def exec_create_table(cursor):
@@ -34,6 +38,8 @@ class PeerDiscoveryService(SharedDatabaseServiceMixin):
         :type peer: PeerInfo
         :return:
         """
+        if not self.ensure_check_done:
+            yield self.ensure_table()
         yield self.db.runInteraction(self.exec_insert, **peer)
         return True
 
@@ -44,6 +50,8 @@ class PeerDiscoveryService(SharedDatabaseServiceMixin):
 
     @defer.inlineCallbacks
     def remove_member(self, peer_id):
+        if not self.ensure_check_done:
+            yield self.ensure_table()
         yield self.db.runInteraction(self.exec_remove, (peer_id,))
         return True
 
@@ -56,6 +64,8 @@ class PeerDiscoveryService(SharedDatabaseServiceMixin):
         """
         Stream peers that resided under the k-v storage.
         """
+        if not self.ensure_check_done:
+            yield self.ensure_table()
         members = yield self.db.runQuery('SELECT * FROM members')
         return [PeerInfo.from_tuple(member).to_dict() for member in members]
 
