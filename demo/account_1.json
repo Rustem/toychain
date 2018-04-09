@@ -1,0 +1,13 @@
+{
+  "app": {
+    "base_path": "/root/.ccoin"
+  },
+  "client": {
+    "account_address": "34268774b426751444e55786d594e46505459325"
+  },
+  "discovery_service": {
+      "host": "10.131.67.182",
+      "port": 4444,
+      "proto": "http"
+  }
+}
