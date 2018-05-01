@@ -1,7 +1,6 @@
 # CryptoCoin
 
-This is a "toy" implementation of Blockchain with Proof-of-Authority(PoA) as final project
-of Toptal's Blockchain Academy. 
+This is a "toy" implementation of Blockchain with Proof-of-Authority(PoA).
 
 Project is developed with twisted networking tools.
 
@@ -238,5 +237,4 @@ Blockchain Node HTTP API is described[here](docs)
 ## Author
 
 Made by Rustem Kamun a.k.a xepa4ep
-
-rustem@toptal.com
+r.kamun@gmail.com
