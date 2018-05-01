@@ -1,12 +1,7 @@
 # CryptoCoin
 
 This is a "toy" implementation of Blockchain with Proof-of-Authority(PoA).
-
 Project is developed with twisted networking tools.
-
-## Remaining Todos
-1. Deploy and check on two servers (doing)
-
 
 ## Features
 1. Proof-of-Authority: Only a specific set of miners (authors) may mine (create) new blocks. The list of miners is specified in the genesis block and is static.
@@ -232,7 +227,7 @@ The log above clearly indicates that the node has run as p2p endpoint on port 63
 
 ## Playing
 
-Blockchain Node HTTP API is described[here](docs)
+Blockchain Node HTTP API is described [here](docs).
 
 ## Author
 

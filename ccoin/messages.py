@@ -10,6 +10,8 @@ from .exceptions import MessageDeserializationException, TransactionNotVerifiabl
 from abc import ABC, abstractmethod, abstractclassmethod
 
 
+# b'BLKfkajdkjfkjdkfj'
+
 class BaseMessage(ABC):
 
     identifier = None
